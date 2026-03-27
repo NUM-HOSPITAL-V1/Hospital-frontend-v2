@@ -11,77 +11,12 @@ import {
   LinearProgress
 } from "@mui/material";
 import { Stack } from "@mui/system";
-import { IconPlus, IconPill, IconHeartPlus, IconEye, IconBottle } from "@tabler/icons-react";
+import { IconPlus } from "@tabler/icons-react";
 import BlankCard from "@/app/(DashboardLayout)/components/shared/BlankCard";
 import DashboardCard from '@/app/(DashboardLayout)/components/shared/DashboardCard';
 import { useTheme } from '@mui/material/styles';
 
-const medications = [
-  {
-    title: "Парацетамол",
-    category: "Өвдөлт намдаагч",
-    icon: <IconPill size={24} />,
-    stock: 385,
-    price: 2500,
-    stockLevel: 75, // percentage of stock remaining
-  },
-  {
-    title: "Амоксициллин",
-    category: "Антибиотик",
-    icon: <IconPill size={24} />,
-    stock: 120,
-    price: 3800,
-    stockLevel: 35,
-  },
-  {
-    title: "Аспирин",
-    category: "Цусны бүлэгнэлт",
-    icon: <IconHeartPlus size={24} />,
-    stock: 250,
-    price: 1800,
-    stockLevel: 60,
-  },
-  {
-    title: "Диклофенак",
-    category: "Үрэвсэл намдаагч",
-    icon: <IconPill size={24} />,
-    stock: 90,
-    price: 4200,
-    stockLevel: 20,
-  },
-  {
-    title: "Цефтриаксон",
-    category: "Антибиотик",
-    icon: <IconBottle size={24} />,
-    stock: 75,
-    price: 12000,
-    stockLevel: 15,
-  },
-  {
-    title: "Нүдний дусаалга",
-    category: "Нүдний эм",
-    icon: <IconEye size={24} />,
-    stock: 180,
-    price: 5500,
-    stockLevel: 45,
-  },
-  {
-    title: "Хлорфенамин",
-    category: "Харшлын эсрэг",
-    icon: <IconPill size={24} />,
-    stock: 220,
-    price: 1500,
-    stockLevel: 55,
-  },
-  {
-    title: "Ибупрофен",
-    category: "Өвдөлт намдаагч",
-    icon: <IconPill size={24} />,
-    stock: 310,
-    price: 3000,
-    stockLevel: 65,
-  },
-];
+const medications = [];
 
 const MedicationCard = ({ medication }) => {
   const theme = useTheme();
@@ -183,7 +118,7 @@ const AvailableMedications = () => {
   return (
     <DashboardCard 
       title="Эмийн сан" 
-      subtitle="Нийт 124 төрлийн эм" 
+      subtitle="Нийт 0 төрлийн эм" 
       action={
         <Link href="/medications" passHref>
           <Typography 
@@ -202,11 +137,23 @@ const AvailableMedications = () => {
       }
     >
       <Grid container spacing={3} sx={{ mt: 0 }}>
-        {medications.map((medication, index) => (
-          <Grid item xs={12} sm={6} md={3} key={index}>
-            <MedicationCard medication={medication} />
+        {medications.length > 0 ? (
+          medications.map((medication, index) => (
+            <Grid item xs={12} sm={6} md={3} key={index}>
+              <MedicationCard medication={medication} />
+            </Grid>
+          ))
+        ) : (
+          <Grid item xs={12}>
+            <BlankCard>
+              <CardContent sx={{ p: 3 }}>
+                <Typography variant="body1" color="text.secondary">
+                  Эмийн сангийн өгөгдөл алга.
+                </Typography>
+              </CardContent>
+            </BlankCard>
           </Grid>
-        ))}
+        )}
       </Grid>
     </DashboardCard>
   );

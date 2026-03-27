@@ -144,7 +144,7 @@ const mockMaterialData = [
 const MaterialReport = ({ filters }) => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
-  const [materials, setMaterials] = useState(mockMaterialData);
+  const [materials, setMaterials] = useState([]);
   
   // For the action menu
   const [anchorEl, setAnchorEl] = useState(null);
@@ -219,7 +219,7 @@ const MaterialReport = ({ filters }) => {
   useEffect(() => {
     // In a real application, you would fetch data from an API here
     // For now, we'll just filter the mock data
-    let filteredData = [...mockMaterialData];
+    let filteredData = [];
     
     // Filter by date range (for lastUpdated)
     if (filters.dateRange[0] && filters.dateRange[1]) {

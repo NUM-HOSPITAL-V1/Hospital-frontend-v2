@@ -28,58 +28,8 @@ import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import CalendarTodayOutlinedIcon from '@mui/icons-material/CalendarTodayOutlined';
 
-// Mock medical history data - in a real app, this would come from an API
-const generateMockHistoryData = (patientId) => {
-  // Generate consistent but random-looking data based on patient ID
-  const historyLength = patientId.charCodeAt(0) % 3 + 2; // 2-4 entries
-  
-  const history = [];
-  const now = new Date();
-  
-  for (let i = 0; i < historyLength; i++) {
-    const date = new Date(now);
-    date.setDate(date.getDate() - (i * 14)); // Every 2 weeks in the past
-    
-    history.push({
-      id: `${patientId}-${i}`,
-      date: date.toISOString().split('T')[0],
-      doctor: ['Jean Doe',],
-      diagnosis: ['Ханиад', 'Багтраа', 'Томуу', 'Шумуулын хазалт'][i % 4],
-      diagnosisCode: ['J00', 'J45.9', 'J11', 'T63.4'][i % 4],
-      type: i === 0 ? 'Давтан' : 'Анхан',
-      status: i === 0 ? 'Хийгдэж буй' : 'Дууссан',
-      vitals: {
-        temperature: (36.5 + (i * 0.3)).toFixed(1),
-        bloodPressure: `${120 + (i * 5)}/${80 + (i * 2)}`,
-        heartRate: 70 + (i * 3),
-        respiratoryRate: 16 + i,
-        weight: 65 - (i * 0.5),
-        height: 170
-      },
-      prescriptions: [
-        {
-          name: ['Парацетамол', 'Ибупрофен', 'Амоксициллин'][i % 3],
-          dosage: ['500мг', '400мг', '250мг'][i % 3],
-          frequency: ['8 цаг тутамд', '6 цаг тутамд', '12 цаг тутамд'][i % 3],
-          duration: ['7 хоног', '5 хоног', '10 хоног'][i % 3]
-        },
-        i % 2 === 0 ? {
-          name: ['Лоратадин', 'Ацетаминофен', 'Цетиризин'][i % 3],
-          dosage: ['10мг', '500мг', '5мг'][i % 3],
-          frequency: ['Өдөрт 1 удаа', 'Өдөрт 2 удаа', 'Өдөрт 1 удаа'][i % 3],
-          duration: ['5 хоног', '3 хоног', '7 хоног'][i % 3]
-        } : null
-      ].filter(Boolean),
-      notes: [
-        'Амралт, хангалттай шингэн уух',
-        'Хоолны дэглэм сахих, архи согтууруулах ундаа хэрэглэхгүй байх',
-        'Дасгал хөдөлгөөн хийх, гэрийн нөхцөлд эмчлэх'
-      ][i % 3]
-    });
-  }
-  
-  return history;
-};
+// TODO: Medical history өгөгдлийг API-аар авч харуулах (одоогоор mock data устгасан)
+const generateMockHistoryData = () => [];
 
 // Row component for expandable table
 const HistoryRow = ({ row }) => {
@@ -247,7 +197,7 @@ const HistoryRow = ({ row }) => {
 
 const PatientMedicalHistory = ({ patient }) => {
   const [tabValue, setTabValue] = useState(0);
-  const medicalHistory = generateMockHistoryData(patient.id);
+  const medicalHistory = generateMockHistoryData(patient?.id);
   
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);

@@ -18,7 +18,6 @@ const PatientOverview = () => {
     const primary = theme.palette.primary.main;
     const secondary = theme.palette.secondary.main;
     const success = theme.palette.success.main;
-    const warning = theme.palette.warning.main;
 
     // chart
     const optionscolumnchart = {
@@ -68,7 +67,7 @@ const PatientOverview = () => {
             tickAmount: 4,
         },
         xaxis: {
-            categories: ['6/10', '7/10', '8/10', '9/10', '10/10', '11/10', '12/10', '13/10'],
+            categories: [],
             axisBorder: {
                 show: false,
             },
@@ -78,20 +77,7 @@ const PatientOverview = () => {
             fillSeriesColor: false,
         },
     };
-    const seriescolumnchart = [
-        {
-            name: 'Шинэ үйлчлүүлэгч',
-            data: [35, 39, 30, 35, 39, 33, 36, 39],
-        },
-        {
-            name: 'Давтан үйлчлүүлэгч',
-            data: [28, 25, 32, 30, 25, 31, 35, 29],
-        },
-        {
-            name: 'Яаралтай тусламж',
-            data: [12, 15, 10, 9, 14, 11, 16, 13],
-        },
-    ];
+    const seriescolumnchart = [];
 
     return (
         <DashboardCard title="Үйлчлүүлэгчдийн тойм" action={
@@ -102,9 +88,7 @@ const PatientOverview = () => {
                 size="small"
                 onChange={handleChange}
             >
-                <MenuItem value={1}>10-р сар 2024</MenuItem>
-                <MenuItem value={2}>9-р сар 2024</MenuItem>
-                <MenuItem value={3}>8-р сар 2024</MenuItem>
+                <MenuItem value={1}>Өгөгдөл алга</MenuItem>
             </Select>
         }>
             <Chart

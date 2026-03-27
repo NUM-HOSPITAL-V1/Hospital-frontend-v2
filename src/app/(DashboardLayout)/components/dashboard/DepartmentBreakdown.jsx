@@ -15,7 +15,6 @@ const DepartmentBreakdown = () => {
   const error = theme.palette.error.main;
   const warning = theme.palette.warning.main;
   const info = theme.palette.info.main;
-  const primarylight = '#ecf2ff';
   const successlight = theme.palette.success.light;
 
   const options = {
@@ -50,32 +49,23 @@ const DepartmentBreakdown = () => {
     ],
   };
 
-  const series = [20, 18, 16, 14, 12, 10, 6, 4]; // хувь хэмжээ
+  const series = [];
 
-  const departments = [
-    { name: "АТС", color: primary },
-    { name: "БС", color: secondary },
-    { name: "ХЗС", color: success },
-    { name: "ШУС", color: error },
-    { name: "МТЭС ", color: warning },
-    { name: "ИТС", color: info },
-    { name: "УТОУХНУС", color: "#c77dff" },
-    { name: "ШУТ UB парк", color: "#00b4d8" },
-  ];
+  const departments = [];
 
   return (
     <DashboardCard title="Салбар сургуулиудын үзлэгийн харьцаа">
       <Grid container spacing={3}>
         <Grid item xs={7} sm={7}>
           <Typography variant="h3" fontWeight="700">
-            1,356
+            0
           </Typography>
           <Stack direction="row" spacing={1} mt={1} alignItems="center">
             <Avatar sx={{ bgcolor: successlight, width: 27, height: 27 }}>
               <IconArrowUpLeft width={20} color="#39B69A" />
             </Avatar>
             <Typography variant="subtitle2" fontWeight="600">
-              +12%
+              0%
             </Typography>
             <Typography variant="subtitle2" color="textSecondary">
               өмнөх сараас

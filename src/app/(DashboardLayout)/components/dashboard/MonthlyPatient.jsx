@@ -42,7 +42,7 @@ const MonthlyPatientCount = () => {
     {
       name: '',
       color: primary,
-      data: [110, 145, 132, 170, 123, 150, 160, 140, 130, 180, 170, 200],
+      data: [],
     },
   ];
 
@@ -82,14 +82,14 @@ const MonthlyPatientCount = () => {
         >
           <Box>
             <Typography variant="h3" fontWeight="700">
-              1,820 хүн
+              0 хүн
             </Typography>
             <Stack direction="row" spacing={1} my={1} alignItems="center">
               <Avatar sx={{ bgcolor: successlight, width: 27, height: 27 }}>
                 <IconArrowUpRight width={20} color="#39B69A" />
               </Avatar>
               <Typography variant="subtitle2" fontWeight="600">
-                +12%
+                0%
               </Typography>
               <Typography variant="subtitle2" color="textSecondary">
                 өмнөх сараас

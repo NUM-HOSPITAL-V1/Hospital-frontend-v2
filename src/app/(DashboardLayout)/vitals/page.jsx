@@ -110,63 +110,7 @@ const theme = createTheme({
   },
 });
 
-const generateSampleData = (count = 20) => {
-  const names = ['Ганбат', 'Баяр', 'Номин'];
-  return Array.from({ length: count }, (_, i) => {
-    const name = names[i % names.length];
-    const date = new Date(2024, Math.floor(Math.random() * 3), Math.floor(Math.random() * 28) + 1);
-    
-    // Generate more realistic heart rate data for chart
-    const baseHeartRate = 70 + (i % 12);
-    const recent = Array.from({ length: 8 }, (_, idx) => {
-      const hour = 9 + idx * 2;
-      const timeStr = `${hour}:00`;
-      const variation = Math.sin(idx * 0.8) * 5;
-      return {
-        time: timeStr,
-        hr: Math.round(baseHeartRate + variation)
-      };
-    });
-    
-    // Define normal ranges and status
-    const temperature = (36 + Math.random()).toFixed(1);
-    const systolic = 100 + (i % 40);
-    const diastolic = 60 + (i % 30);
-    const bloodPressure = `${systolic}/${diastolic}`;
-    const heartRate = baseHeartRate;
-    const respiratoryRate = 14 + (i % 4);
-    
-    // Determine health status
-    const isTemperatureNormal = temperature >= 36.1 && temperature <= 37.2;
-    const isBPNormal = systolic < 130 && diastolic < 85;
-    const isHeartRateNormal = heartRate >= 60 && heartRate <= 90;
-    const isRespiratoryNormal = respiratoryRate >= 12 && respiratoryRate <= 20;
-    
-    const overallStatus = 
-      (isTemperatureNormal && isBPNormal && isHeartRateNormal && isRespiratoryNormal) ? 'normal' :
-      (!isTemperatureNormal || !isBPNormal) ? 'attention' : 'warning';
-    
-    return {
-      id: i,
-      name,
-      date,
-      age: 25 + (i % 40),
-      gender: i % 2 === 0 ? 'Эр' : 'Эм',
-      temperature,
-      bloodPressure,
-      heartRate,
-      respiratoryRate,
-      weight: 60 + (i % 30),
-      height: 160 + (i % 30),
-      recent,
-      status: overallStatus,
-      isTemperatureNormal,
-      isBPNormal,
-      isHeartRateNormal,
-      isRespiratoryNormal
-    };
-  });
-};
+const generateSampleData = () => [];
 
 // Custom tooltip for the chart
 const CustomTooltip = ({ active, payload }) => {

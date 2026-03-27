@@ -260,7 +260,7 @@ function Row(props) {
 const TreatmentReport = ({ filters }) => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
-  const [treatments, setTreatments] = useState(mockTreatmentData);
+  const [treatments, setTreatments] = useState([]);
 
   // Calculate statistics
   const totalTreatments = treatments.length;
@@ -283,7 +283,7 @@ const TreatmentReport = ({ filters }) => {
   useEffect(() => {
     // In a real application, you would fetch data from an API here
     // For now, we'll just filter the mock data
-    let filteredData = [...mockTreatmentData];
+    let filteredData = [];
     
     // Filter by department
     if (filters.department) {

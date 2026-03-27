@@ -72,7 +72,7 @@ const patientService = {
   createPatient: async (patientData) => {
     try {
       console.log('Creating patient with data:', patientData);
-      const response = await apiClient.post('/auth/register', {
+      const response = await apiClient.post('/auth/signup/patient', {
         ...patientData,
         role: 'Patient'
       });
@@ -116,7 +116,7 @@ const patientService = {
   // Get patient's own examinations (for patients)
   getOwnExaminations: async () => {
     try {
-      const response = await apiClient.get('/patient/me/examinations');
+      const response = await apiClient.get('/patient/examinations');
       return response.data;
     } catch (error) {
       throw error.response?.data || { error: 'Failed to fetch examinations' };
@@ -126,7 +126,7 @@ const patientService = {
   // Get patient's own profile (for patients)
   getOwnProfile: async () => {
     try {
-      const response = await apiClient.get('/patient/me/profile');
+      const response = await apiClient.get('/patient/profile');
       return response.data;
     } catch (error) {
       throw error.response?.data || { error: 'Failed to fetch profile' };
@@ -136,7 +136,7 @@ const patientService = {
   // Get patient's allergies
   getPatientAllergies: async (patientId) => {
     try {
-      const response = await apiClient.get(`/patient/${patientId}/allergies`);
+      const response = await apiClient.get(`/allergy/patient/allergy/${patientId}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || { error: 'Failed to fetch allergies' };
@@ -146,7 +146,7 @@ const patientService = {
   // Patient-specific allergy management
   getMyAllergies: async () => {
     try {
-      const response = await apiClient.get('/patient/me/allergies');
+      const response = await apiClient.get('/allergy/my/allergies');
       return response.data;
     } catch (error) {
       throw error.response?.data || { error: 'Failed to fetch allergies' };
@@ -155,7 +155,7 @@ const patientService = {
 
   createMyAllergy: async (allergyData) => {
     try {
-      const response = await apiClient.post('/patient/me/allergies', allergyData);
+      const response = await apiClient.post('/allergy/my/allergies', allergyData);
       return response.data;
     } catch (error) {
       throw error.response?.data || { error: 'Failed to create allergy' };
@@ -164,7 +164,7 @@ const patientService = {
 
   updateMyAllergy: async (id, allergyData) => {
     try {
-      const response = await apiClient.put(`/patient/me/allergies/${id}`, allergyData);
+      const response = await apiClient.put(`/allergy/my/allergies/${id}`, allergyData);
       return response.data;
     } catch (error) {
       throw error.response?.data || { error: 'Failed to update allergy' };
@@ -173,7 +173,7 @@ const patientService = {
 
   deleteMyAllergy: async (id) => {
     try {
-      const response = await apiClient.delete(`/patient/me/allergies/${id}`);
+      const response = await apiClient.delete(`/allergy/my/allergies/${id}`);
       return response.data;
     } catch (error) {
       throw error.response?.data || { error: 'Failed to delete allergy' };
@@ -186,7 +186,7 @@ const patientService = {
       console.log('Logging in with credentials:', credentials);
       
       // Support both phone and email login
-      const endpoint = credentials.email ? '/auth/login' : '/auth/login';
+      const endpoint = '/auth/signin';
       
       const response = await apiClient.post(endpoint, credentials);
       console.log('Login successful:', response.data);

@@ -10,6 +10,14 @@ import WarningIcon from '@mui/icons-material/Warning';
 
 import { getStatusColor, getRowStyle, isLowStock, isNearExpiry } from '../helper';
 
+const formatDateYMD = (value) => {
+  if (!value) return '';
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return String(value);
+  // Use UTC to avoid SSR/CSR timezone hydration mismatches
+  return d.toISOString().slice(0, 10);
+};
+
 const StockTable = ({ 
   filteredItems, 
   page, 
@@ -75,7 +83,7 @@ const StockTable = ({
                     <TableCell>
                       {item.dosage ? `${item.dosage}, ${item.form}` : item.form}
                     </TableCell>
-                    <TableCell>{item.expiryDate}</TableCell>
+                    <TableCell>{formatDateYMD(item.expiryDate)}</TableCell>
                     <TableCell>
                       <Typography fontWeight={isLowStock(item) ? 600 : 400} color={isLowStock(item) ? 'error.main' : 'inherit'}>
                         {item.quantity} {item.unit}
@@ -92,7 +100,7 @@ const StockTable = ({
                         sx={{ borderRadius: '4px' }} 
                       />
                     </TableCell>
-                    <TableCell>{item.lastUpdated}</TableCell>
+                    <TableCell>{formatDateYMD(item.lastUpdated)}</TableCell>
                     <TableCell align="right">
                       <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
                         <IconButton 

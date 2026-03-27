@@ -19,59 +19,7 @@ import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'; // 
 import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty'; // Added for Хийгдэж буй status
 import { useRouter } from 'next/navigation';
 
-const initialExaminations = [
-  {
-    id: 1,
-    date: '2023-05-09',
-    lastName: 'Баяр',
-    firstName: 'Номин',
-    type: 'Анхан',
-    diagnosis: 'A01.1 - A ижбанадад',
-    action: 'Z-40',
-    status: 'Дууссан'
-  },
-  {
-    id: 2,
-    date: '2023-05-09',
-    lastName: 'Баяр',
-    firstName: 'Бат',
-    type: 'Анхан',
-    diagnosis: 'A04.8 - Үүсгэгч нь тогтоогдоогүй гэдэсний бусад бактери халдвар',
-    action: 'Z-40',
-    status: 'Хийгдэж буй'
-  },
-  {
-    id: 3,
-    date: '2023-05-09',
-    lastName: 'Ганбат',
-    firstName: 'Батхүү',
-    type: 'Анхан',
-    diagnosis: 'Онош тогтоогдоогүй',
-    action: 'Z-40',
-    status: 'Хийгдэж буй'
-  },
-  {
-    id: 4,
-    date: '2023-05-09',
-    lastName: 'Баяр',
-    firstName: 'Бат',
-    type: 'Давтан',
-    diagnosis: 'A01.3 - C ижбанадад',
-    action: 'Z-18',
-    status: 'Дууссан'
-  },
-  {
-    id: 5,
-    date: '2023-05-10',
-    lastName: 'Баяр',
-    firstName: 'Бат',
-    type: 'Давтан',
-    diagnosis: 'B02.0 - Херпес зостер сэтгэцийн хүндрэлгүй',
-    action: 'Z-20',
-    status: 'Дууссан'
-  },
-  
-];
+const initialExaminations = [];
 
 export default function ExaminationPage() {
   const [examinations, setExaminations] = useState(initialExaminations);

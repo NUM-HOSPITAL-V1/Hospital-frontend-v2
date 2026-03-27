@@ -26,58 +26,8 @@ import {
 import { IconCheck, IconClock, IconNotes, IconStethoscope } from '@tabler/icons-react';
 import DashboardCard from '@/app/(DashboardLayout)/components/shared/DashboardCard';
 
-const treatments = [
-  {
-    id: 'T1001',
-    patientName: 'Баяр Бат',
-    patientId: 'P-101',
-    department: 'АТС',
-    treatment: 'Дуслын шингэн',
-    time: '09:30',
-    status: 'Хүлээгдэж буй',
-    notes: 'Өдөрт 3 удаа'
-  },
-  {
-    id: 'T1002',
-    patientName: 'Ганбат Батхүү',
-    patientId: 'P-104',
-    department: 'ШУС',
-    treatment: 'Шархны боолт',
-    time: '10:15',
-    status: 'Дууссан',
-    notes: 'Шаардлагатай үед солих'
-  },
-  {
-    id: 'T1003',
-    patientName: 'Номин Баяр',
-    patientId: 'P-102',
-    department: 'БС',
-    treatment: 'Судсаар тариа',
-    time: '11:00',
-    status: 'Хийгдэж буй',
-    notes: 'Antibiotic цефтриаксон 1g'
-  },
-  {
-    id: 'T1001',
-    patientName: 'Баяр Бат',
-    patientId: 'P-105',
-    department: 'МТЭС',
-    treatment: 'Хэрэглээний эм',
-    time: '11:30',
-    status: 'Хүлээгдэж буй',
-    notes: 'Өдөрт 2 удаа хэрэглэнэ'
-  },
-  {
-    id: 'T1003',
-    patientName: 'Номин Баяр',
-    patientId: 'P-103',
-    department: 'ИТС',
-    treatment: 'Зүрхний бичлэг',
-    time: '13:45',
-    status: 'Хүлээгдэж буй',
-    notes: 'Тогтмол хяналт шаардлагатай'
-  },
-];
+// TODO: Nurse/medical staff dashboard дээрх хуваарийг API-аар сольж авах
+const treatments = [];
 
 const TreatmentSchedule = () => {
   const [filter, setFilter] = useState('all');

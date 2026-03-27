@@ -36,79 +36,8 @@ import {
   import { useState } from 'react';
   import DashboardCard from '@/app/(DashboardLayout)/components/shared/DashboardCard';
   
-  // Sample recent activities data
-  const activities = [
-    {
-      id: 'ACT001',
-      time: '08:30',
-      type: 'treatment',
-      title: 'Дуслын шингэн',
-      description: 'Батсайхан Дорж (P-101)',
-      icon: <IconStethoscope size={16} />,
-      color: 'primary',
-      users: ['Б.Б', 'Д.Б'],
-      completed: true
-    },
-    {
-      id: 'ACT002',
-      time: '09:15',
-      type: 'medication',
-      title: 'Амоксициллин 500мг',
-      description: 'Сарантуяа Наранцэцэг (P-102)',
-      icon: <IconPill size={16} />,
-      color: 'info',
-      users: ['Б.Б'],
-      completed: true
-    },
-    {
-      id: 'ACT003',
-      time: '10:00',
-      type: 'vitals',
-      title: 'Амин үзүүлэлт хэмжих',
-      description: 'Батмөнх Мөнх-Эрдэнэ (P-103)',
-      icon: <IconHeartbeat size={16} />,
-      color: 'error',
-      users: ['Н.З', 'А.Г'],
-      completed: false,
-      upcoming: true
-    },
-    {
-      id: 'ACT004',
-      time: '11:30',
-      type: 'note',
-      title: 'Эмчилгээний тэмдэглэл',
-      description: 'Нямжав Ган-Эрдэнэ (P-105)',
-      icon: <IconClipboardText size={16} />,
-      color: 'success',
-      users: ['Н.З'],
-      completed: false,
-      upcoming: true
-    },
-    {
-      id: 'ACT005',
-      time: '13:00',
-      type: 'appointment',
-      title: 'Эмчийн үзлэг',
-      description: 'Оюунгэрэл Ариунзул (P-104)',
-      icon: <IconCalendarEvent size={16} />,
-      color: 'warning',
-      users: ['Б.Б', 'М.Т'],
-      completed: false,
-      upcoming: true
-    },
-    {
-      id: 'ACT006',
-      time: '14:30',
-      type: 'admission',
-      title: 'Шинэ үйлчлүүлэгч хүлээн авах',
-      description: 'Баясгалан Хашбат (Шинэ)',
-      icon: <IconUserPlus size={16} />,
-      color: 'secondary',
-      users: ['Б.Б'],
-      completed: false,
-      upcoming: true
-    }
-  ];
+  // TODO: Dashboard дээрх "сүүлийн үйл ажиллагаа"-г API-аар сольж авах
+  const activities = [];
   
   const RecentActivities = () => {
     const [menuAnchor, setMenuAnchor] = useState(null);
