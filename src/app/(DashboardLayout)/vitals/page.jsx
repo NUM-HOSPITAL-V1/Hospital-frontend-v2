@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Card,
   CardContent,
@@ -26,6 +26,12 @@ import {
   Tab,
   Divider
 } from '@mui/material';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
+import MenuItem from '@mui/material/MenuItem';
+import Alert from '@mui/material/Alert';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import DeviceThermostatIcon from '@mui/icons-material/DeviceThermostat';
@@ -41,6 +47,8 @@ import AddIcon from '@mui/icons-material/Add';
 import { format, isSameDay } from 'date-fns';
 import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import patientService from '../../service/patientService';
+import vitalService from '../../service/vitalService';
 
 // Match customer management theme while preserving vital card design
 const theme = createTheme({
@@ -109,8 +117,6 @@ const theme = createTheme({
     },
   },
 });
-
-const generateSampleData = () => [];
 
 // Custom tooltip for the chart
 const CustomTooltip = ({ active, payload }) => {
@@ -291,15 +297,162 @@ const PatientCard = ({ patient }) => {
 };
 
 const VitalSignsPage = () => {
+  const [allData, setAllData] = useState([]);
+  const [patients, setPatients] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [sortNewest, setSortNewest] = useState(true);
   const [selectedDate, setSelectedDate] = useState(null);
-  const [filterStatus, setFilterStatus] = useState('all');
   const [tabValue, setTabValue] = useState(0);
+  const [openCreateDialog, setOpenCreateDialog] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [createForm, setCreateForm] = useState({
+    patient: '',
+    date: new Date(),
+    temperature: '',
+    bloodPressure: '',
+    heartRate: '',
+    respiratoryRate: '',
+    weight: '',
+    height: '',
+    saturation: '',
+    concsiousness_status: '',
+  });
   const perPage = 9;
 
-  const allData = generateSampleData(50);
+  const getRole = () => {
+    if (typeof window === 'undefined') return '';
+    try {
+      const storedUser = JSON.parse(localStorage.getItem('USER') || '{}');
+      return storedUser?.user?.role || '';
+    } catch (error) {
+      return '';
+    }
+  };
+
+  const parseBloodPressure = (bloodPressure) => {
+    const [systolic, diastolic] = String(bloodPressure || '')
+      .split('/')
+      .map((value) => Number(value.trim()));
+
+    return {
+      systolic: Number.isFinite(systolic) ? systolic : null,
+      diastolic: Number.isFinite(diastolic) ? diastolic : null,
+    };
+  };
+
+  const evaluateStatus = (vital) => {
+    const temperature = Number(vital.temperature);
+    const heartRate = Number(vital.right_heart_rate);
+    const systolic = Number(vital.right_systolic);
+    const diastolic = Number(vital.right_diastolic);
+    const respiratoryRate = Number(vital.respiration_rate);
+
+    const warning =
+      temperature >= 39 ||
+      heartRate >= 120 ||
+      systolic >= 180 ||
+      diastolic >= 120 ||
+      respiratoryRate >= 30;
+
+    if (warning) return 'warning';
+
+    const attention =
+      temperature >= 37.5 ||
+      heartRate > 100 ||
+      heartRate < 60 ||
+      systolic >= 140 ||
+      diastolic >= 90 ||
+      respiratoryRate > 20;
+
+    return attention ? 'attention' : 'normal';
+  };
+
+  const transformPatientVitals = (patient, vitals) => {
+    const latest = vitals[0];
+    if (!latest) return null;
+
+    const status = evaluateStatus(latest);
+    const bloodPressure = [
+      latest.right_systolic ?? latest.left_systolic ?? '-',
+      latest.right_diastolic ?? latest.left_diastolic ?? '-',
+    ].join('/');
+
+    return {
+      id: patient.id,
+      name: `${patient.lastname || ''} ${patient.firstname || ''}`.trim(),
+      age: patient.birthOfDate
+        ? Math.max(0, new Date().getFullYear() - new Date(patient.birthOfDate).getFullYear())
+        : 'N/A',
+      gender: patient.gender === 'male' ? 'Эрэгтэй' : patient.gender === 'female' ? 'Эмэгтэй' : 'Тодорхойгүй',
+      date: new Date(latest.date || latest.createdAt),
+      status,
+      temperature: latest.temperature ?? '-',
+      heartRate: latest.right_heart_rate ?? latest.left_heart_rate ?? '-',
+      bloodPressure,
+      respiratoryRate: latest.respiration_rate ?? '-',
+      weight: latest.weight ?? '-',
+      height: latest.height ?? '-',
+      isTemperatureNormal: Number(latest.temperature) >= 36 && Number(latest.temperature) <= 37.4,
+      isHeartRateNormal: Number(latest.right_heart_rate ?? latest.left_heart_rate) >= 60 && Number(latest.right_heart_rate ?? latest.left_heart_rate) <= 100,
+      isBPNormal: Number(latest.right_systolic ?? latest.left_systolic) < 140 && Number(latest.right_diastolic ?? latest.left_diastolic) < 90,
+      isRespiratoryNormal: Number(latest.respiration_rate) >= 12 && Number(latest.respiration_rate) <= 20,
+      recent: vitals
+        .slice()
+        .reverse()
+        .map((item) => ({
+          time: format(new Date(item.date || item.createdAt), 'MM-dd'),
+          hr: item.right_heart_rate ?? item.left_heart_rate ?? 0,
+        })),
+    };
+  };
+
+  const loadVitals = async () => {
+    try {
+      setLoading(true);
+      setError('');
+
+      const response = await patientService.getAllPatients();
+      const patientList = response?.patients || [];
+      setPatients(patientList);
+
+      const role = getRole();
+      let fetchFailureCount = 0;
+      const vitalsByPatient = await Promise.all(
+        patientList.map(async (patient) => {
+          try {
+            const vitalResponse = await vitalService.getPatientVitalSigns(patient.id, 7);
+            return transformPatientVitals(patient, vitalResponse?.data || []);
+          } catch (fetchError) {
+            fetchFailureCount += 1;
+            console.error(`Error fetching vitals for patient ${patient.id}:`, fetchError);
+            if (role === 'Admin' || role === 'MedicalStaff') {
+              return null;
+            }
+            throw fetchError;
+          }
+        })
+      );
+
+      setAllData(vitalsByPatient.filter(Boolean));
+
+      if (patientList.length > 0 && fetchFailureCount === patientList.length) {
+        setError('Амин үзүүлэлтийн мэдээлэл татаж чадсангүй. Backend container-оо дахин build хийсэн эсэх, мөн /api/vital/patient/:id/vitalsigns endpoint ажиллаж байгаа эсэхийг шалгана уу.');
+      }
+    } catch (fetchError) {
+      console.error('Error fetching vital signs:', fetchError);
+      setError(fetchError?.error || fetchError?.response?.data?.error || 'Амин үзүүлэлтийн мэдээлэл татахад алдаа гарлаа');
+      setAllData([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadVitals();
+  }, []);
 
   const filteredData = allData
     .filter(p => {
@@ -321,7 +474,6 @@ const VitalSignsPage = () => {
   const handleClearFilters = () => {
     setSearch('');
     setSelectedDate(null);
-    setFilterStatus('all');
     setTabValue(0);
     setPage(1);
   };
@@ -329,6 +481,76 @@ const VitalSignsPage = () => {
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
     setPage(1);
+  };
+
+  const handleCreateOpen = () => {
+    setOpenCreateDialog(true);
+  };
+
+  const handleCreateClose = () => {
+    if (!saving) {
+      setOpenCreateDialog(false);
+    }
+  };
+
+  const handleCreateChange = (e) => {
+    const { name, value } = e.target;
+    setCreateForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleCreateDateChange = (date) => {
+    setCreateForm((prev) => ({ ...prev, date }));
+  };
+
+  const handleCreateSubmit = async () => {
+    if (!createForm.patient) {
+      setError('Өвчтөн сонгоно уу');
+      return;
+    }
+
+    const { systolic, diastolic } = parseBloodPressure(createForm.bloodPressure);
+    if (!systolic || !diastolic) {
+      setError('Цусны даралтыг 120/80 хэлбэрээр оруулна уу');
+      return;
+    }
+
+    try {
+      setSaving(true);
+      setError('');
+      await vitalService.createVitalSigns({
+        patient: createForm.patient,
+        date: createForm.date,
+        temperature: createForm.temperature === '' ? undefined : Number(createForm.temperature),
+        right_systolic: systolic,
+        right_diastolic: diastolic,
+        right_heart_rate: createForm.heartRate === '' ? undefined : Number(createForm.heartRate),
+        respiration_rate: createForm.respiratoryRate === '' ? undefined : Number(createForm.respiratoryRate),
+        weight: createForm.weight === '' ? undefined : Number(createForm.weight),
+        height: createForm.height === '' ? undefined : Number(createForm.height),
+        saturation: createForm.saturation === '' ? undefined : Number(createForm.saturation),
+        concsiousness_status: createForm.concsiousness_status || undefined,
+      });
+
+      setOpenCreateDialog(false);
+      setCreateForm({
+        patient: '',
+        date: new Date(),
+        temperature: '',
+        bloodPressure: '',
+        heartRate: '',
+        respiratoryRate: '',
+        weight: '',
+        height: '',
+        saturation: '',
+        concsiousness_status: '',
+      });
+      await loadVitals();
+    } catch (saveError) {
+      console.error('Error creating vital signs:', saveError);
+      setError(saveError?.error || saveError?.response?.data?.error || 'Амин үзүүлэлт бүртгэхэд алдаа гарлаа');
+    } finally {
+      setSaving(false);
+    }
   };
 
   // Count by status for tabs
@@ -375,6 +597,7 @@ const VitalSignsPage = () => {
                   variant="contained" 
                   color="primary" 
                   startIcon={<AddIcon />}
+                  onClick={handleCreateOpen}
                   sx={{ 
                     borderRadius: '8px', 
                     textTransform: 'none' 
@@ -474,11 +697,17 @@ const VitalSignsPage = () => {
               </Grid>
             </Grid>
           </Paper>
+
+          {error ? (
+            <Box sx={{ px: 3, mb: 2 }}>
+              <Alert severity="error">{error}</Alert>
+            </Box>
+          ) : null}
           
           {/* Results count */}
           <Box sx={{ px: 3, mb: 2, display: 'flex', justifyContent: 'space-between' }}>
             <Typography variant="body2" color="text.secondary">
-              {filteredData.length} өвчтөн олдлоо
+              {loading ? 'Ачааллаж байна...' : `${filteredData.length} өвчтөн олдлоо`}
             </Typography>
             <Chip 
               label={`${perPage * (page-1) + 1}-${Math.min(perPage * page, filteredData.length)} / ${filteredData.length}`}
@@ -501,14 +730,16 @@ const VitalSignsPage = () => {
                 <Grid item xs={12}>
                   <Paper sx={{ p: 4, textAlign: 'center', borderRadius: 2, border: '1px dashed', borderColor: 'divider' }}>
                     <Typography variant="h6" color="text.secondary">
-                      Өвчтөн олдсонгүй
+                      {loading ? 'Ачааллаж байна' : 'Өвчтөн олдсонгүй'}
                     </Typography>
                     <Typography variant="body2" color="text.secondary" mt={1}>
-                      Хайлтын утгаа өөрчилнө үү
+                      {loading ? 'Амин үзүүлэлтийн мэдээлэл татаж байна' : 'Хайлтын утгаа өөрчилнө үү'}
                     </Typography>
-                    <Button variant="outlined" onClick={handleClearFilters} sx={{ mt: 2 }}>
-                      Шүүлтүүрийг арилгах
-                    </Button>
+                    {loading ? null : (
+                      <Button variant="outlined" onClick={handleClearFilters} sx={{ mt: 2 }}>
+                        Шүүлтүүрийг арилгах
+                      </Button>
+                    )}
                   </Paper>
                 </Grid>
               )}
@@ -528,6 +759,51 @@ const VitalSignsPage = () => {
             />
           </Box>
         </Box>
+
+        <Dialog open={openCreateDialog} onClose={handleCreateClose} fullWidth maxWidth="sm">
+          <DialogTitle>Амин үзүүлэлт бүртгэх</DialogTitle>
+          <DialogContent>
+            <Stack spacing={2} sx={{ mt: 1 }}>
+              <TextField
+                select
+                label="Өвчтөн"
+                name="patient"
+                value={createForm.patient}
+                onChange={handleCreateChange}
+                fullWidth
+              >
+                {patients.map((patient) => (
+                  <MenuItem key={patient.id} value={patient.id}>
+                    {`${patient.lastname || ''} ${patient.firstname || ''}`.trim()}
+                  </MenuItem>
+                ))}
+              </TextField>
+              <LocalizationProvider dateAdapter={AdapterDateFns}>
+                <DatePicker
+                  label="Огноо"
+                  value={createForm.date}
+                  onChange={handleCreateDateChange}
+                  slotProps={{ textField: { fullWidth: true } }}
+                  format="yyyy-MM-dd"
+                />
+              </LocalizationProvider>
+              <TextField label="Биеийн халуун" name="temperature" value={createForm.temperature} onChange={handleCreateChange} fullWidth />
+              <TextField label="Цусны даралт" name="bloodPressure" value={createForm.bloodPressure} onChange={handleCreateChange} placeholder="120/80" fullWidth />
+              <TextField label="Зүрхний цохилт" name="heartRate" value={createForm.heartRate} onChange={handleCreateChange} fullWidth />
+              <TextField label="Амьсгалын хэмнэл" name="respiratoryRate" value={createForm.respiratoryRate} onChange={handleCreateChange} fullWidth />
+              <TextField label="Хүчилтөрөгчийн ханалт" name="saturation" value={createForm.saturation} onChange={handleCreateChange} fullWidth />
+              <TextField label="Жин" name="weight" value={createForm.weight} onChange={handleCreateChange} fullWidth />
+              <TextField label="Өндөр" name="height" value={createForm.height} onChange={handleCreateChange} fullWidth />
+              <TextField label="Ухаан санааны байдал" name="concsiousness_status" value={createForm.concsiousness_status} onChange={handleCreateChange} fullWidth />
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleCreateClose} disabled={saving}>Болих</Button>
+            <Button onClick={handleCreateSubmit} variant="contained" disabled={saving}>
+              {saving ? 'Хадгалж байна...' : 'Хадгалах'}
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Box>
     </ThemeProvider>
   );

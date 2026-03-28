@@ -45,6 +45,7 @@ apiClient.interceptors.response.use(
       console.log('Unauthorized, redirecting to login');
       localStorage.removeItem('token');
       localStorage.removeItem('user');
+      localStorage.removeItem('USER');
       if (typeof window !== 'undefined') {
         window.location.href = '/authentication/login';
       }
@@ -192,9 +193,16 @@ const patientService = {
       console.log('Login successful:', response.data);
       
       // Store token and user data in localStorage
-      if (response.data.token) {
-        localStorage.setItem('token', response.data.token);
+      if (response.data.accessToken) {
+        localStorage.setItem('token', response.data.accessToken);
         localStorage.setItem('user', JSON.stringify(response.data.user));
+        localStorage.setItem(
+          'USER',
+          JSON.stringify({
+            token: response.data.accessToken,
+            user: response.data.user,
+          })
+        );
         console.log('Token and user stored in localStorage');
       }
       

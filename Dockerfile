@@ -10,8 +10,8 @@ RUN npm ci --legacy-peer-deps
 # ---------- BUILDER ----------
 FROM base AS builder
 ENV NODE_ENV=production
-ARG NEXT_PUBLIC_API_URL
-ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_BACKEND_URL
+ENV NEXT_PUBLIC_BACKEND_URL=$NEXT_PUBLIC_BACKEND_URL
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -25,6 +25,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
+ENV NEXT_PUBLIC_BACKEND_URL=http://backend:8000
 
 RUN addgroup -S nextjs && adduser -S nextjs -G nextjs
 

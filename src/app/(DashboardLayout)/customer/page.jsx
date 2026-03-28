@@ -199,7 +199,7 @@ export default function Patient() {
 
   // Navigate to /patientRegister
   const handleAddPatient = () => {
-    router.push('/patient/patientRegister');
+    router.push('/customer/customerRegister');
   };
   
   // Menu handlers
@@ -243,11 +243,11 @@ export default function Patient() {
       const nameParts = getNameParts(patientData.name);
       
       const updatedPatientData = {
-        firstName: nameParts.firstName,
-        lastName: nameParts.lastName,
+        firstname: nameParts.firstName,
+        lastname: nameParts.lastName,
         phoneNumber: patientData.phone,
         address: patientData.address,
-        userType: reverseMappedType(patientData.type)
+        type: reverseMappedType(patientData.type)
       };
       
       const response = await patientService.updatePatient(id, updatedPatientData);

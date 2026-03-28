@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Box, Typography, TextField, Button, Table, TableBody,
   TableCell, TableContainer, TableHead, TableRow, Paper,
@@ -18,11 +18,14 @@ import CloseIcon from '@mui/icons-material/Close';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline'; // Added for Дууссан status
 import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty'; // Added for Хийгдэж буй status
 import { useRouter } from 'next/navigation';
+import examinationService from '../../service/examinationService';
 
 const initialExaminations = [];
 
 export default function ExaminationPage() {
   const [examinations, setExaminations] = useState(initialExaminations);
+  const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState('');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [anchorEl, setAnchorEl] = useState(null);
@@ -45,6 +48,72 @@ export default function ExaminationPage() {
     action: '',
     status: ''
   });
+
+  const formatDate = (value) => {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    return date.toISOString().split('T')[0];
+  };
+
+  const mapExamType = (exam) => {
+    if (exam.exam_type) return exam.exam_type;
+    const typeMap = {
+      Initial: 'Анхан',
+      'Follow-up': 'Давтан',
+      Preventive: 'Сэргийлэх',
+      'Active Monitoring': 'Хяналт',
+      'Home Visit': 'Гэрийн үзлэг',
+      'House Call': 'Дуудлага',
+    };
+    return typeMap[exam.doctors_examination] || exam.doctors_examination || '';
+  };
+
+  const mapStatus = (status) => {
+    const statusMap = {
+      Ongoing: 'Хийгдэж буй',
+      Done: 'Дууссан',
+      Todo: 'Хүлээгдэж буй',
+    };
+    return statusMap[status] || status || 'Хийгдэж буй';
+  };
+
+  const transformExamination = (exam) => ({
+    id: exam._id,
+    date: formatDate(exam.exam_date),
+    lastName: exam.patient?.lastname || '',
+    firstName: exam.patient?.firstname || '',
+    type: mapExamType(exam),
+    diagnosis: exam.illness || '',
+    action: exam.surgery || '',
+    status: mapStatus(exam.status),
+  });
+
+  useEffect(() => {
+    const fetchExaminations = async () => {
+      try {
+        setLoading(true);
+        setFetchError('');
+
+        const storedUser = localStorage.getItem('USER');
+        const parsedUser = storedUser ? JSON.parse(storedUser) : null;
+        const userRole = parsedUser?.user?.role;
+
+        const response = userRole === 'Admin'
+          ? await examinationService.getAllExaminations()
+          : await examinationService.getMyExaminations();
+        const transformed = (response?.data || []).map(transformExamination);
+        setExaminations(transformed);
+      } catch (error) {
+        console.error('Error fetching examinations:', error);
+        setFetchError(error?.response?.data?.error || 'Үзлэгийн мэдээлэл татахад алдаа гарлаа');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchExaminations();
+  }, []);
 
   const ITEMS_PER_PAGE = 4;
 
@@ -169,7 +238,7 @@ export default function ExaminationPage() {
 
         <Box sx={{ px: 3, pb: 2 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-            <Typography variant="body2">Үр дүн: {filtered.length}</Typography>
+            <Typography variant="body2">Үр дүн: {loading ? '...' : filtered.length}</Typography>
             <Box sx={{ display: 'flex', gap: 2 }}>
               <TextField
                 placeholder="Хэрэглэгч хайх"
@@ -184,6 +253,11 @@ export default function ExaminationPage() {
               
             </Box>
           </Box>
+          {fetchError ? (
+            <Typography variant="body2" color="error" sx={{ mt: 1 }}>
+              {fetchError}
+            </Typography>
+          ) : null}
         </Box>
 
         <TableContainer 
@@ -266,6 +340,13 @@ export default function ExaminationPage() {
                   </TableCell>
                 </TableRow>
               ))}
+              {!loading && paginated.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={9} align="center">
+                    Үзлэгийн мэдээлэл алга
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </TableContainer>

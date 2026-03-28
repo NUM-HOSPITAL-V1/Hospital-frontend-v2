@@ -21,6 +21,8 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Snackbar,
+  Alert,
 } from '@mui/material';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
@@ -37,10 +39,13 @@ import LocationCityIcon from '@mui/icons-material/LocationCity';
 import HomeIcon from '@mui/icons-material/Home';
 import ApartmentIcon from '@mui/icons-material/Apartment';
 import PhoneIcon from '@mui/icons-material/Phone';
+import EmailIcon from '@mui/icons-material/Email';
+import LockIcon from '@mui/icons-material/Lock';
 import NotesIcon from '@mui/icons-material/Notes';
 import CloseIcon from '@mui/icons-material/Close';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import { useRouter } from 'next/navigation';
+import patientService from '../../../service/patientService';
 
 // Mongolian provinces data
 const provinces = [
@@ -102,6 +107,7 @@ export default function CustomerRegister() {
   const [district, setDistrict] = useState('');
   const [userType, setUserType] = useState('');
   const [availableDistricts, setAvailableDistricts] = useState([]);
+  const [loading, setLoading] = useState(false);
   
   // Form data state
   const [formData, setFormData] = useState({
@@ -113,6 +119,8 @@ export default function CustomerRegister() {
     apartment: '',
     street: '',
     phone: '',
+    email: '',
+    password: '',
     notes: '',
   });
   
@@ -120,6 +128,11 @@ export default function CustomerRegister() {
   const [openSuccessDialog, setOpenSuccessDialog] = useState(false);
   // Confirmation dialog state
   const [openConfirmDialog, setOpenConfirmDialog] = useState(false);
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success',
+  });
 
   useEffect(() => {
     // Update available districts based on selected province
@@ -150,20 +163,91 @@ export default function CustomerRegister() {
   const handleSave = () => {
     setOpenConfirmDialog(true);
   };
+
+  const mapUserType = (value) => {
+    const typeMap = {
+      'Оюутан': 'Student',
+      'Багш': 'Teacher',
+      'Ажилтан': 'Staff',
+    };
+    return typeMap[value] || '';
+  };
+
+  const mapGender = (value) => {
+    const genderMap = {
+      'Эрэгтэй': 'male',
+      'Эмэгтэй': 'female',
+    };
+    return genderMap[value];
+  };
+
+  const formatBirthDate = (date) => {
+    if (!date) return undefined;
+    const parsedDate = new Date(date);
+    if (Number.isNaN(parsedDate.getTime())) return undefined;
+    return parsedDate.toISOString().split('T')[0];
+  };
   
-  const confirmSave = () => {
-    // Here you would typically send data to backend
-    console.log("Saving customer data:", {
-      ...formData,
-      birthDate,
-      gender,
-      province,
-      district,
-      userType
-    });
-    
-    setOpenConfirmDialog(false);
-    setOpenSuccessDialog(true);
+  const confirmSave = async () => {
+    if (loading) {
+      return;
+    }
+
+    const mappedType = mapUserType(userType);
+    const mappedGender = mapGender(gender);
+    const address = [province, district, formData.apartment, formData.street]
+      .filter(Boolean)
+      .join(', ');
+
+    if (!formData.lastName || !formData.firstName || !formData.registrationNumber || !formData.phone || !formData.email || !formData.password || !mappedType) {
+      setSnackbar({
+        open: true,
+        message: 'Шаардлагатай талбаруудыг бүрэн бөглөнө үү.',
+        severity: 'error',
+      });
+      return;
+    }
+
+    if (formData.password.length < 6) {
+      setSnackbar({
+        open: true,
+        message: 'Нууц үг хамгийн багадаа 6 тэмдэгт байна.',
+        severity: 'error',
+      });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await patientService.createPatient({
+        firstname: formData.firstName,
+        lastname: formData.lastName,
+        email: formData.email,
+        password: formData.password,
+        type: mappedType,
+        phoneNumber: formData.phone,
+        register: formData.registrationNumber,
+        address,
+        occupation: formData.profession,
+        birthOfDate: formatBirthDate(birthDate),
+        gender: mappedGender,
+      });
+
+      setOpenConfirmDialog(false);
+      setOpenSuccessDialog(true);
+    } catch (error) {
+      const validationMessage = Array.isArray(error?.errors)
+        ? error.errors.map((item) => item.message).join(', ')
+        : null;
+
+      setSnackbar({
+        open: true,
+        message: validationMessage || error?.error || error?.message || 'Үйлчлүүлэгч бүртгэхэд алдаа гарлаа.',
+        severity: 'error',
+      });
+    } finally {
+      setLoading(false);
+    }
   };
   const handleSuccessClose = () => {
     setOpenSuccessDialog(false);
@@ -177,7 +261,11 @@ export default function CustomerRegister() {
   const handleExaminationClose = () => {
     setOpenSuccessDialog(false);
     router.push('/examination');
-  }
+  };
+
+  const handleCloseSnackbar = () => {
+    setSnackbar((prev) => ({ ...prev, open: false }));
+  };
 
   return (
     <Box sx={{ display: 'flex', height: '100vh', bgcolor: 'white' }}>
@@ -212,6 +300,7 @@ export default function CustomerRegister() {
               color="primary" 
               startIcon={<SaveIcon />}
               onClick={handleSave}
+              disabled={loading}
               sx={{ 
                 borderRadius: '8px', 
                 textTransform: 'none',
@@ -524,6 +613,44 @@ export default function CustomerRegister() {
                   <Grid item xs={12} sm={4}>
                     <TextField
                       fullWidth
+                      label="Цахим шуудан"
+                      name="email"
+                      value={formData.email}
+                      onChange={handleFormChange}
+                      variant="outlined"
+                      size="small"
+                      type="email"
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <EmailIcon color="primary" />
+                          </InputAdornment>
+                        ),
+                      }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={4}>
+                    <TextField
+                      fullWidth
+                      label="Нууц үг"
+                      name="password"
+                      value={formData.password}
+                      onChange={handleFormChange}
+                      variant="outlined"
+                      size="small"
+                      type="password"
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <LockIcon color="primary" />
+                          </InputAdornment>
+                        ),
+                      }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={4}>
+                    <TextField
+                      fullWidth
                       label="Тэмдэглэл"
                       name="notes"
                       value={formData.notes}
@@ -602,6 +729,7 @@ export default function CustomerRegister() {
           <Button 
             onClick={() => setOpenConfirmDialog(false)}
             variant="outlined"
+            disabled={loading}
             sx={{ 
               borderRadius: '8px', 
               textTransform: 'none',
@@ -614,6 +742,7 @@ export default function CustomerRegister() {
           <Button 
             variant="contained" 
             onClick={confirmSave}
+            disabled={loading}
             sx={{ 
               borderRadius: '8px', 
               textTransform: 'none',
@@ -621,7 +750,7 @@ export default function CustomerRegister() {
               minWidth: '120px'
             }}
           >
-            Хадгалах
+            {loading ? 'Хадгалж байна...' : 'Хадгалах'}
           </Button>
         </DialogActions>
       </Dialog>
@@ -682,6 +811,17 @@ export default function CustomerRegister() {
   </Button>
 </DialogActions>
       </Dialog>
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} variant="filled" sx={{ width: '100%' }}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }

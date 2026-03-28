@@ -26,6 +26,7 @@ import AddItemDialog from './dialog/AddItemDialog';
 import EditItemDialog from './dialog/EditItemDialog';
 import DeleteConfirmationDialog from './dialog/DeleteDialog';
 import StockTransactionDialog from './dialog/TransactionDialog'; // path нь зөв эсэхийг шалгаарай
+import medicineService from '../../../service/medicineService';
 
 
 const PharmacyStockManagement = ({ onOpenTransaction }) => {
@@ -47,6 +48,95 @@ const PharmacyStockManagement = ({ onOpenTransaction }) => {
   // Pagination state
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+
+  const mapApiTypeToCategory = (type, category) => {
+    if (category) return category;
+
+    const typeMap = {
+      medication: 'Эм',
+      Supplies: 'Хэрэгсэл',
+      Creams: 'Уусмал',
+      'Emergency Items': 'Вакцин',
+    };
+    return typeMap[type] || 'Бусад';
+  };
+
+  const mapCategoryToApiType = (category) => {
+    const categoryMap = {
+      'Эм': 'medication',
+      'Хэрэгсэл': 'Supplies',
+      'Уусмал': 'Creams',
+      'Вакцин': 'Emergency Items',
+      'Бусад': 'Supplies',
+    };
+    return categoryMap[category] || 'medication';
+  };
+
+  const deriveStatus = (item) => {
+    if (item.status) return item.status;
+    if (Number(item.quantity) <= Number(item.reorderLevel || 0)) return 'Дахин захиалах';
+    return 'Хангалттай';
+  };
+
+  const transformMedicineToStockItem = (medicine) => ({
+    id: medicine._id,
+    name: medicine.name || '',
+    category: mapApiTypeToCategory(medicine.type, medicine.category),
+    subCategory: medicine.subCategory || '',
+    form: medicine.form || '',
+    dosage: medicine.dosage || '',
+    manufacturer: medicine.manufacturer || '',
+    supplier: medicine.supplier || '',
+    batchNumber: medicine.batchNumber || '',
+    expiryDate: medicine.expiryDate || null,
+    quantity: Number(medicine.quantity || 0),
+    unit: medicine.unit || '',
+    location: medicine.location || '',
+    reorderLevel: Number(medicine.reorderLevel || 0),
+    price: Number(medicine.price || 0),
+    status: deriveStatus(medicine),
+    description: medicine.description || '',
+    lastUpdated: medicine.updatedAt || medicine.createdAt || null,
+  });
+
+  const buildMedicinePayload = (item) => ({
+    name: item.name,
+    type: mapCategoryToApiType(item.category),
+    dosage: item.dosage || '',
+    price: Number(item.price || 0),
+    quantity: Number(item.quantity || 0),
+    expiryDate: item.expiryDate,
+    category: item.category || '',
+    subCategory: item.subCategory || '',
+    form: item.form || '',
+    manufacturer: item.manufacturer || '',
+    supplier: item.supplier || '',
+    batchNumber: item.batchNumber || '',
+    location: item.location || '',
+    unit: item.unit || '',
+    reorderLevel: Number(item.reorderLevel || 0),
+    status: item.status || deriveStatus(item),
+    description: item.description || '',
+  });
+
+  const fetchMedicines = async () => {
+    try {
+      setLoading(true);
+      const response = await medicineService.getAllMedicines();
+      const medicines = Array.isArray(response?.data) ? response.data : [];
+      const transformedItems = medicines.map(transformMedicineToStockItem);
+      setStockItems(transformedItems);
+      setSnackbar((prev) => ({ ...prev, open: false }));
+    } catch (error) {
+      setSnackbar({
+        open: true,
+        message: error?.response?.data?.error || error?.message || 'Эмийн мэдээлэл татахад алдаа гарлаа',
+        severity: 'error'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
   
   // New item/edit item form state
   const [itemForm, setItemForm] = useState({
@@ -73,6 +163,10 @@ const PharmacyStockManagement = ({ onOpenTransaction }) => {
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
   };
+
+  useEffect(() => {
+    fetchMedicines();
+  }, []);
   
   // Filter items based on search and filters
   useEffect(() => {
@@ -183,23 +277,27 @@ const PharmacyStockManagement = ({ onOpenTransaction }) => {
       return;
     }
     
-    // Add lastUpdated field
-    const newItem = {
-      ...itemForm,
-      lastUpdated: new Date().toISOString().split('T')[0]
-    };
-    
-    // In a real app, this would be an API call
-    setTimeout(() => {
-      setStockItems(prev => [...prev, newItem]);
-      setSnackbar({
-        open: true,
-        message: 'Бараа амжилттай нэмэгдлээ',
-        severity: 'success'
+    medicineService.createMedicine(buildMedicinePayload(itemForm))
+      .then((response) => {
+        const createdItem = transformMedicineToStockItem(response.data);
+        setStockItems(prev => [...prev, createdItem]);
+        setSnackbar({
+          open: true,
+          message: 'Бараа амжилттай нэмэгдлээ',
+          severity: 'success'
+        });
+        setAddDialogOpen(false);
+      })
+      .catch((error) => {
+        setSnackbar({
+          open: true,
+          message: error?.response?.data?.error || error?.message || 'Бараа нэмэхэд алдаа гарлаа',
+          severity: 'error'
+        });
+      })
+      .finally(() => {
+        setLoading(false);
       });
-      setLoading(false);
-      setAddDialogOpen(false);
-    }, 1000);
   };
   
   // Handle edit item
@@ -230,25 +328,29 @@ const PharmacyStockManagement = ({ onOpenTransaction }) => {
       return;
     }
     
-    // Update lastUpdated field
-    const updatedItem = {
-      ...itemForm,
-      lastUpdated: new Date().toISOString().split('T')[0]
-    };
-    
-    // In a real app, this would be an API call
-    setTimeout(() => {
-      setStockItems(prev => 
-        prev.map(item => item.id === updatedItem.id ? updatedItem : item)
-      );
-      setSnackbar({
-        open: true,
-        message: 'Бараа амжилттай шинэчлэгдлээ',
-        severity: 'success'
+    medicineService.updateMedicine(itemForm.id, buildMedicinePayload(itemForm))
+      .then((response) => {
+        const updatedItem = transformMedicineToStockItem(response.data);
+        setStockItems(prev => 
+          prev.map(item => item.id === updatedItem.id ? updatedItem : item)
+        );
+        setSnackbar({
+          open: true,
+          message: 'Бараа амжилттай шинэчлэгдлээ',
+          severity: 'success'
+        });
+        setEditDialogOpen(false);
+      })
+      .catch((error) => {
+        setSnackbar({
+          open: true,
+          message: error?.response?.data?.error || error?.message || 'Бараа шинэчлэхэд алдаа гарлаа',
+          severity: 'error'
+        });
+      })
+      .finally(() => {
+        setLoading(false);
       });
-      setLoading(false);
-      setEditDialogOpen(false);
-    }, 1000);
   };
   
   // Handle delete item
@@ -264,17 +366,26 @@ const PharmacyStockManagement = ({ onOpenTransaction }) => {
   const handleDeleteItem = () => {
     setLoading(true);
     
-    // In a real app, this would be an API call
-    setTimeout(() => {
-      setStockItems(prev => prev.filter(item => item.id !== selectedItem.id));
-      setSnackbar({
-        open: true,
-        message: 'Бараа амжилттай устгагдлаа',
-        severity: 'success'
+    medicineService.deleteMedicine(selectedItem.id)
+      .then(() => {
+        setStockItems(prev => prev.filter(item => item.id !== selectedItem.id));
+        setSnackbar({
+          open: true,
+          message: 'Бараа амжилттай устгагдлаа',
+          severity: 'success'
+        });
+        setDeleteDialogOpen(false);
+      })
+      .catch((error) => {
+        setSnackbar({
+          open: true,
+          message: error?.response?.data?.error || error?.message || 'Бараа устгахад алдаа гарлаа',
+          severity: 'error'
+        });
+      })
+      .finally(() => {
+        setLoading(false);
       });
-      setLoading(false);
-      setDeleteDialogOpen(false);
-    }, 1000);
   };
   
   // Handle snackbar close
