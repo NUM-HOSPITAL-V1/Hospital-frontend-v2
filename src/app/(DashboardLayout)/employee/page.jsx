@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Box, Tabs, Tab, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Paper, Button, IconButton, Pagination, TextField,
-  Typography, Avatar, Menu, MenuItem, Dialog, DialogTitle, DialogContent, 
-  DialogActions, Divider, FormControl, InputLabel, Select, Stack
+  Typography, Avatar, Menu, MenuItem, Dialog, DialogTitle, DialogContent,
+  DialogActions, Divider, FormControl, InputLabel, Select, Stack, CircularProgress
 } from '@mui/material';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import AddIcon from '@mui/icons-material/Add';
@@ -14,32 +14,63 @@ import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import CloseIcon from '@mui/icons-material/Close';
 import { useRouter } from 'next/navigation';
+import employeeService from '../../service/employeeService';
 
-// Sample employee data
-const initialEmployees = [];
+const ITEMS_PER_PAGE = 6;
+
+const normalizeEmployee = (employee) => ({
+  id: employee.id,
+  firstname: employee.firstname || '',
+  lastname: employee.lastname || '',
+  email: employee.email || '',
+  phoneNumber: employee.phoneNumber || '',
+  position: employee.position || '',
+  specialization: employee.specialization || '',
+});
+
+const getFullName = (employee) =>
+  `${employee?.lastname || ''} ${employee?.firstname || ''}`.trim();
 
 export default function Employee() {
   const router = useRouter();
   const [tabValue, setTabValue] = useState(0);
   const [page, setPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
-  const ITEMS_PER_PAGE = 6;
-
-  const [employees, setEmployees] = useState(initialEmployees);
+  const [employees, setEmployees] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [error, setError] = useState('');
   const [anchorEl, setAnchorEl] = useState(null);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
-
   const [openEditDialog, setOpenEditDialog] = useState(false);
   const [openDeleteConfirm, setOpenDeleteConfirm] = useState(false);
-
   const [editFormData, setEditFormData] = useState({
     id: '',
-    name: '',
-    department: '',
+    firstname: '',
+    lastname: '',
+    email: '',
     position: '',
-    gender: '',
-    phone: '',
+    specialization: '',
+    phoneNumber: '',
   });
+
+  const loadEmployees = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      const data = await employeeService.getAllEmployees();
+      setEmployees(Array.isArray(data) ? data.map(normalizeEmployee) : []);
+    } catch (fetchError) {
+      console.error('Failed to load employees:', fetchError);
+      setError('Ажилтны мэдээлэл ачааллах үед алдаа гарлаа.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadEmployees();
+  }, []);
 
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
@@ -50,26 +81,37 @@ export default function Employee() {
     setPage(value);
   };
 
-  const filteredEmployees = employees.filter((emp) => {
-    const matchesSearch = emp.name.toLowerCase().includes(searchTerm.toLowerCase());
+  const filteredEmployees = employees.filter((employee) => {
+    const searchableText = [
+      employee.firstname,
+      employee.lastname,
+      employee.email,
+      employee.phoneNumber,
+      employee.position,
+      employee.specialization,
+    ]
+      .join(' ')
+      .toLowerCase();
+
+    const matchesSearch = searchableText.includes(searchTerm.toLowerCase());
     if (!matchesSearch) return false;
     if (tabValue === 0) return true;
-    if (tabValue === 1) return emp.department === 'Эмч';
-    if (tabValue === 2) return emp.department === 'Сувилагч';
-    if (tabValue === 3) return emp.department === 'Асрагч';
+    if (tabValue === 1) return employee.position === 'Эмч';
+    if (tabValue === 2) return employee.position === 'Сувилагч';
+    if (tabValue === 3) return employee.position === 'Асрагч';
     return true;
   });
 
-  const totalPages = Math.ceil(filteredEmployees.length / ITEMS_PER_PAGE);
+  const totalPages = Math.max(1, Math.ceil(filteredEmployees.length / ITEMS_PER_PAGE));
   const currentPageData = filteredEmployees.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
 
   const handleAddEmployee = () => {
     router.push('/employee/employeeRegister');
   };
 
-  const handleMoreClick = (event, emp) => {
+  const handleMoreClick = (event, employee) => {
     setAnchorEl(event.currentTarget);
-    setSelectedEmployee(emp);
+    setSelectedEmployee(employee);
   };
 
   const handleCloseMenu = () => {
@@ -77,7 +119,17 @@ export default function Employee() {
   };
 
   const handleEdit = () => {
-    setEditFormData({ ...selectedEmployee });
+    if (!selectedEmployee) return;
+
+    setEditFormData({
+      id: selectedEmployee.id,
+      firstname: selectedEmployee.firstname,
+      lastname: selectedEmployee.lastname,
+      email: selectedEmployee.email,
+      position: selectedEmployee.position,
+      specialization: selectedEmployee.specialization,
+      phoneNumber: selectedEmployee.phoneNumber,
+    });
     setOpenEditDialog(true);
     handleCloseMenu();
   };
@@ -87,38 +139,63 @@ export default function Employee() {
     handleCloseMenu();
   };
 
-  const handleEditChange = (e) => {
-    const { name, value } = e.target;
+  const handleEditChange = (event) => {
+    const { name, value } = event.target;
     setEditFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const saveEdit = () => {
-    setEmployees((prev) =>
-      prev.map((emp) =>
-        emp.id === editFormData.id ? { ...editFormData } : emp
-      )
-    );
-    console.log("Updated Employee:", editFormData); // энд axios.put ашиглаж болно
-    setOpenEditDialog(false);
+  const saveEdit = async () => {
+    if (!editFormData.firstname || !editFormData.lastname || !editFormData.email) {
+      setError('Овог, нэр, имэйл талбаруудыг бөглөнө үү.');
+      return;
+    }
+
+    try {
+      setActionLoading(true);
+      setError('');
+      const updatedEmployee = await employeeService.updateEmployee(editFormData.id, {
+        firstname: editFormData.firstname,
+        lastname: editFormData.lastname,
+        email: editFormData.email,
+        phoneNumber: editFormData.phoneNumber,
+        position: editFormData.position,
+        specialization: editFormData.specialization,
+      });
+
+      setEmployees((prev) =>
+        prev.map((employee) =>
+          employee.id === editFormData.id ? normalizeEmployee(updatedEmployee) : employee
+        )
+      );
+      setOpenEditDialog(false);
+    } catch (updateError) {
+      console.error('Failed to update employee:', updateError);
+      setError('Ажилтны мэдээлэл шинэчлэх үед алдаа гарлаа.');
+    } finally {
+      setActionLoading(false);
+    }
   };
 
-  const confirmDelete = () => {
-    setEmployees((prev) => prev.filter((emp) => emp.id !== selectedEmployee.id));
-    setOpenDeleteConfirm(false);
+  const confirmDelete = async () => {
+    if (!selectedEmployee?.id) return;
+
+    try {
+      setActionLoading(true);
+      setError('');
+      await employeeService.deleteEmployee(selectedEmployee.id);
+      setEmployees((prev) => prev.filter((employee) => employee.id !== selectedEmployee.id));
+      setOpenDeleteConfirm(false);
+      setSelectedEmployee(null);
+    } catch (deleteError) {
+      console.error('Failed to delete employee:', deleteError);
+      setError('Ажилтан устгах үед алдаа гарлаа.');
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const cancelDelete = () => {
     setOpenDeleteConfirm(false);
-  };
-
-  const getNameParts = (fullName) => {
-    const parts = fullName.split(' ');
-    if (parts.length === 2) {
-      return { lastName: parts[0], firstName: parts[1] };
-    } else if (parts.length > 2) {
-      return { lastName: parts[0], firstName: parts.slice(1).join(' ') };
-    }
-    return { lastName: '', firstName: fullName };
   };
 
   return (
@@ -131,6 +208,11 @@ export default function Employee() {
               <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
                 Бүх ажилтны дэлгэрэнгүй мэдээллийн жагсаалт
               </Typography>
+              {error && (
+                <Typography variant="body2" color="error" sx={{ mt: 1 }}>
+                  {error}
+                </Typography>
+              )}
             </Box>
             <Box sx={{ display: 'flex', gap: 2 }}>
               <TextField
@@ -138,20 +220,27 @@ export default function Employee() {
                 variant="outlined"
                 size="small"
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(event) => setSearchTerm(event.target.value)}
                 InputProps={{
                   startAdornment: <SearchIcon color="action" sx={{ mr: 1 }} />,
                 }}
                 sx={{ width: 250 }}
               />
-              <Button 
-                variant="contained" 
-                color="primary" 
-                startIcon={<AddIcon />} 
+              <Button
+                variant="contained"
+                color="primary"
+                startIcon={<AddIcon />}
                 onClick={handleAddEmployee}
                 sx={{ borderRadius: '8px', textTransform: 'none' }}
               >
                 Нэмэх
+              </Button>
+              <Button
+                variant="outlined"
+                onClick={loadEmployees}
+                sx={{ borderRadius: '8px', textTransform: 'none' }}
+              >
+                Шинэчлэх
               </Button>
             </Box>
           </Box>
@@ -177,45 +266,56 @@ export default function Employee() {
                 <TableCell>Овог</TableCell>
                 <TableCell>Нэр</TableCell>
                 <TableCell>Албан тушаал</TableCell>
-                <TableCell>Хүйс</TableCell>
+                <TableCell>Мэргэжил</TableCell>
                 <TableCell>Утасны дугаар</TableCell>
                 <TableCell align="right"></TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {currentPageData.map((emp) => {
-                const { lastName, firstName } = getNameParts(emp.name);
-                return (
-                  <TableRow key={emp.id} sx={{ '&:hover': { backgroundColor: '#f9f9f9' } }}>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={6} align="center" sx={{ py: 6 }}>
+                    <CircularProgress size={28} />
+                  </TableCell>
+                </TableRow>
+              ) : currentPageData.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} align="center" sx={{ py: 6 }}>
+                    Ажилтны мэдээлэл олдсонгүй.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                currentPageData.map((employee) => (
+                  <TableRow key={employee.id} sx={{ '&:hover': { backgroundColor: '#f9f9f9' } }}>
                     <TableCell>
                       <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                        <Avatar 
-                          sx={{ 
-                            mr: 2, 
-                            width: 36, 
-                            height: 36, 
+                        <Avatar
+                          sx={{
+                            mr: 2,
+                            width: 36,
+                            height: 36,
                             bgcolor: 'primary.main',
                             fontSize: '14px',
-                            fontWeight: 'medium' 
+                            fontWeight: 'medium'
                           }}
                         >
-                          {emp.name.charAt(0)}
+                          {(employee.firstname || employee.lastname || '?').charAt(0)}
                         </Avatar>
-                        {lastName}
+                        {employee.lastname || '-'}
                       </Box>
                     </TableCell>
-                    <TableCell>{firstName}</TableCell>
-                    <TableCell>{emp.department}</TableCell>
-                    <TableCell>{emp.gender}</TableCell>
-                    <TableCell>{emp.phone}</TableCell>
+                    <TableCell>{employee.firstname || '-'}</TableCell>
+                    <TableCell>{employee.position || '-'}</TableCell>
+                    <TableCell>{employee.specialization || '-'}</TableCell>
+                    <TableCell>{employee.phoneNumber || '-'}</TableCell>
                     <TableCell align="right">
-                      <IconButton 
-                        size="small" 
-                        onClick={(e) => handleMoreClick(e, emp)}
-                        sx={{ 
+                      <IconButton
+                        size="small"
+                        onClick={(event) => handleMoreClick(event, employee)}
+                        sx={{
                           color: 'text.secondary',
-                          '&:hover': { 
-                            bgcolor: 'rgba(0, 0, 0, 0.04)' 
+                          '&:hover': {
+                            bgcolor: 'rgba(0, 0, 0, 0.04)'
                           }
                         }}
                       >
@@ -223,8 +323,8 @@ export default function Employee() {
                       </IconButton>
                     </TableCell>
                   </TableRow>
-                );
-              })}
+                ))
+              )}
             </TableBody>
           </Table>
         </TableContainer>
@@ -233,10 +333,9 @@ export default function Employee() {
           <Pagination count={totalPages} page={page} onChange={handlePageChange} color="primary" size="small" />
         </Box>
 
-        {/* Menu */}
-        <Menu 
-          anchorEl={anchorEl} 
-          open={Boolean(anchorEl)} 
+        <Menu
+          anchorEl={anchorEl}
+          open={Boolean(anchorEl)}
           onClose={handleCloseMenu}
           PaperProps={{
             sx: {
@@ -246,26 +345,26 @@ export default function Employee() {
             }
           }}
         >
-          <MenuItem 
+          <MenuItem
             onClick={handleEdit}
-            sx={{ 
+            sx={{
               gap: 1,
               py: 1,
-              '&:hover': { 
-                bgcolor: 'rgba(25, 118, 210, 0.08)' 
+              '&:hover': {
+                bgcolor: 'rgba(25, 118, 210, 0.08)'
               }
             }}
           >
             <EditOutlinedIcon fontSize="small" color="primary" />
             <Typography>Засах</Typography>
           </MenuItem>
-          <MenuItem 
+          <MenuItem
             onClick={handleDelete}
-            sx={{ 
+            sx={{
               gap: 1,
               py: 1,
-              '&:hover': { 
-                bgcolor: 'rgba(211, 47, 47, 0.08)' 
+              '&:hover': {
+                bgcolor: 'rgba(211, 47, 47, 0.08)'
               }
             }}
           >
@@ -274,11 +373,10 @@ export default function Employee() {
           </MenuItem>
         </Menu>
 
-        {/* Edit Dialog */}
-        <Dialog 
-          open={openEditDialog} 
-          onClose={() => setOpenEditDialog(false)} 
-          fullWidth 
+        <Dialog
+          open={openEditDialog}
+          onClose={() => setOpenEditDialog(false)}
+          fullWidth
           maxWidth="sm"
           PaperProps={{
             sx: {
@@ -287,10 +385,10 @@ export default function Employee() {
             }
           }}
         >
-          <DialogTitle 
-            sx={{ 
-              display: 'flex', 
-              justifyContent: 'space-between', 
+          <DialogTitle
+            sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
               alignItems: 'center',
               pb: 1
             }}
@@ -300,10 +398,10 @@ export default function Employee() {
                 Ажилтны мэдээлэл засах
               </Typography>
             </Box>
-            <IconButton 
-              size="small" 
+            <IconButton
+              size="small"
               onClick={() => setOpenEditDialog(false)}
-              sx={{ 
+              sx={{
                 color: 'text.secondary',
                 '&:hover': { bgcolor: 'rgba(0, 0, 0, 0.04)' }
               }}
@@ -311,89 +409,99 @@ export default function Employee() {
               <CloseIcon fontSize="small" />
             </IconButton>
           </DialogTitle>
-          
+
           <Divider />
-          
+
           <DialogContent sx={{ pt: 3 }}>
             <Stack spacing={2.5}>
               <TextField
                 fullWidth
-                label="Нэр"
-                name="name"
-                value={editFormData.name}
+                label="Овог"
+                name="lastname"
+                value={editFormData.lastname}
                 onChange={handleEditChange}
                 variant="outlined"
                 InputLabelProps={{ shrink: true }}
               />
-              
+
+              <TextField
+                fullWidth
+                label="Нэр"
+                name="firstname"
+                value={editFormData.firstname}
+                onChange={handleEditChange}
+                variant="outlined"
+                InputLabelProps={{ shrink: true }}
+              />
+
+              <TextField
+                fullWidth
+                label="Имэйл"
+                name="email"
+                value={editFormData.email}
+                onChange={handleEditChange}
+                variant="outlined"
+                InputLabelProps={{ shrink: true }}
+              />
+
               <FormControl fullWidth>
-                <InputLabel id="department-label">Албан тушаал</InputLabel>
+                <InputLabel id="position-label">Албан тушаал</InputLabel>
                 <Select
-                  labelId="department-label"
-                  name="department"
-                  value={editFormData.department}
+                  labelId="position-label"
+                  name="position"
+                  value={editFormData.position}
                   onChange={handleEditChange}
                   label="Албан тушаал"
                 >
                   <MenuItem value="Эмч">Эмч</MenuItem>
                   <MenuItem value="Сувилагч">Сувилагч</MenuItem>
                   <MenuItem value="Асрагч">Асрагч</MenuItem>
+                  <MenuItem value="Удирдлага">Удирдлага</MenuItem>
+                  <MenuItem value="Харуул">Харуул</MenuItem>
+                  <MenuItem value="Цэвэрлэгч">Цэвэрлэгч</MenuItem>
                 </Select>
               </FormControl>
-              
+
               <TextField
                 fullWidth
-                label="Албан тасаг"
-                name="position"
-                value={editFormData.position}
+                label="Мэргэжил"
+                name="specialization"
+                value={editFormData.specialization}
                 onChange={handleEditChange}
                 variant="outlined"
                 InputLabelProps={{ shrink: true }}
               />
-              
-              <FormControl fullWidth>
-                <InputLabel id="gender-label">Хүйс</InputLabel>
-                <Select
-                  labelId="gender-label"
-                  name="gender"
-                  value={editFormData.gender}
-                  onChange={handleEditChange}
-                  label="Хүйс"
-                >
-                  <MenuItem value="Эрэгтэй">Эрэгтэй</MenuItem>
-                  <MenuItem value="Эмэгтэй">Эмэгтэй</MenuItem>
-                </Select>
-              </FormControl>
-              
+
               <TextField
                 fullWidth
                 label="Утас"
-                name="phone"
-                value={editFormData.phone}
+                name="phoneNumber"
+                value={editFormData.phoneNumber}
                 onChange={handleEditChange}
                 variant="outlined"
                 InputLabelProps={{ shrink: true }}
               />
             </Stack>
           </DialogContent>
-          
+
           <DialogActions sx={{ px: 3, py: 2 }}>
-            <Button 
+            <Button
               onClick={() => setOpenEditDialog(false)}
               variant="outlined"
-              sx={{ 
-                borderRadius: '8px', 
+              sx={{
+                borderRadius: '8px',
                 textTransform: 'none',
                 px: 3
               }}
             >
               Болих
             </Button>
-            <Button 
-              variant="contained" 
+            <Button
+              variant="contained"
               onClick={saveEdit}
-              sx={{ 
-                borderRadius: '8px', 
+              disabled={actionLoading}
+              sx={{
+                borderRadius: '8px',
                 textTransform: 'none',
                 px: 3
               }}
@@ -403,9 +511,8 @@ export default function Employee() {
           </DialogActions>
         </Dialog>
 
-        {/* Delete Confirm Dialog */}
-        <Dialog 
-          open={openDeleteConfirm} 
+        <Dialog
+          open={openDeleteConfirm}
           onClose={cancelDelete}
           PaperProps={{
             sx: {
@@ -415,11 +522,11 @@ export default function Employee() {
             }
           }}
         >
-          <DialogTitle 
-            sx={{ 
-              display: 'flex', 
-              justifyContent: 'space-between', 
-              alignItems: 'center' 
+          <DialogTitle
+            sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
             }}
           >
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -428,10 +535,10 @@ export default function Employee() {
                 Устгах уу?
               </Typography>
             </Box>
-            <IconButton 
-              size="small" 
+            <IconButton
+              size="small"
               onClick={cancelDelete}
-              sx={{ 
+              sx={{
                 color: 'text.secondary',
                 '&:hover': { bgcolor: 'rgba(0, 0, 0, 0.04)' }
               }}
@@ -439,24 +546,24 @@ export default function Employee() {
               <CloseIcon fontSize="small" />
             </IconButton>
           </DialogTitle>
-          
+
           <Divider />
-          
+
           <DialogContent sx={{ py: 3 }}>
             <Typography align="center">
-              Та <b>{selectedEmployee?.name}</b> ажилтныг устгахдаа итгэлтэй байна уу?
+              Та <b>{getFullName(selectedEmployee) || 'энэ ажилтан'}</b> ажилтныг устгахдаа итгэлтэй байна уу?
             </Typography>
             <Typography variant="body2" color="text.secondary" align="center" sx={{ mt: 1 }}>
               Энэ үйлдлийг буцаах боломжгүй.
             </Typography>
           </DialogContent>
-          
+
           <DialogActions sx={{ px: 3, py: 2, justifyContent: 'center' }}>
-            <Button 
+            <Button
               onClick={cancelDelete}
               variant="outlined"
-              sx={{ 
-                borderRadius: '8px', 
+              sx={{
+                borderRadius: '8px',
                 textTransform: 'none',
                 px: 3,
                 minWidth: '120px'
@@ -464,13 +571,14 @@ export default function Employee() {
             >
               Болих
             </Button>
-            <Button 
-              variant="contained" 
-              color="error" 
+            <Button
+              variant="contained"
+              color="error"
               onClick={confirmDelete}
+              disabled={actionLoading}
               startIcon={<DeleteOutlineOutlinedIcon />}
-              sx={{ 
-                borderRadius: '8px', 
+              sx={{
+                borderRadius: '8px',
                 textTransform: 'none',
                 px: 3,
                 minWidth: '120px'

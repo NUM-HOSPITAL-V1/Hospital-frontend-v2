@@ -15,8 +15,7 @@ import { IconPlus } from "@tabler/icons-react";
 import BlankCard from "@/app/(DashboardLayout)/components/shared/BlankCard";
 import DashboardCard from '@/app/(DashboardLayout)/components/shared/DashboardCard';
 import { useTheme } from '@mui/material/styles';
-
-const medications = [];
+import { useDashboardData } from '@/app/(DashboardLayout)/components/dashboard/DashboardDataContext';
 
 const MedicationCard = ({ medication }) => {
   const theme = useTheme();
@@ -115,10 +114,12 @@ const MedicationCard = ({ medication }) => {
 }
 
 const AvailableMedications = () => {
+  const { medicines, stats, loading, error } = useDashboardData();
+
   return (
     <DashboardCard 
       title="Эмийн сан" 
-      subtitle="Нийт 0 төрлийн эм" 
+      subtitle={`Нийт ${stats.totalMedicines} төрлийн эм`}
       action={
         <Link href="/medications" passHref>
           <Typography 
@@ -137,8 +138,18 @@ const AvailableMedications = () => {
       }
     >
       <Grid container spacing={3} sx={{ mt: 0 }}>
-        {medications.length > 0 ? (
-          medications.map((medication, index) => (
+        {loading ? (
+          <Grid item xs={12}>
+            <BlankCard>
+              <CardContent sx={{ p: 3 }}>
+                <Typography variant="body1" color="text.secondary">
+                  Өгөгдөл ачаалж байна...
+                </Typography>
+              </CardContent>
+            </BlankCard>
+          </Grid>
+        ) : medicines.length > 0 ? (
+          medicines.map((medication, index) => (
             <Grid item xs={12} sm={6} md={3} key={index}>
               <MedicationCard medication={medication} />
             </Grid>
@@ -148,7 +159,7 @@ const AvailableMedications = () => {
             <BlankCard>
               <CardContent sx={{ p: 3 }}>
                 <Typography variant="body1" color="text.secondary">
-                  Эмийн сангийн өгөгдөл алга.
+                  {error || 'Эмийн сангийн өгөгдөл алга.'}
                 </Typography>
               </CardContent>
             </BlankCard>

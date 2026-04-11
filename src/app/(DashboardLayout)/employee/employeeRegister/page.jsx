@@ -38,6 +38,8 @@ import PhoneIcon from '@mui/icons-material/Phone';
 import EmailIcon from '@mui/icons-material/Email';
 import CloseIcon from '@mui/icons-material/Close';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import LockIcon from '@mui/icons-material/Lock';
+import employeeService from '../../../service/employeeService';
 import { useRouter } from 'next/navigation';
 
 // Position options
@@ -125,6 +127,8 @@ export default function EmployeeRegister() {
   const [openSuccessDialog, setOpenSuccessDialog] = useState(false);
   // Confirmation dialog state
   const [openConfirmDialog, setOpenConfirmDialog] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const [saveLoading, setSaveLoading] = useState(false);
   
   // Form data
   const [formData, setFormData] = useState({
@@ -133,6 +137,7 @@ export default function EmployeeRegister() {
     registrationNumber: '',
     education: '',
     email: '',
+    password: '',
     apartment: '',
     street: '',
     phone: '',
@@ -161,24 +166,38 @@ export default function EmployeeRegister() {
   };
   
   const handleSave = () => {
+    if (!formData.firstName || !formData.lastName || !formData.email || !formData.password || !position) {
+      setSaveError('Овог, нэр, имэйл, нууц үг, албан тушаал талбаруудыг бөглөнө үү.');
+      return;
+    }
+
+    setSaveError('');
     setOpenConfirmDialog(true);
   };
   
-  const confirmSave = () => {
-    // Here you would typically send data to backend
-    console.log("Saving employee data:", {
-      ...formData,
-      birthDate,
-      startDate,
-      gender,
+  const confirmSave = async () => {
+    const payload = {
+      firstname: formData.firstName,
+      lastname: formData.lastName,
+      email: formData.email,
+      password: formData.password,
+      phoneNumber: formData.phone,
       position,
-      department,
-      province,
-      district
-    });
-    
-    setOpenConfirmDialog(false);
-    setOpenSuccessDialog(true);
+      specialization: formData.education,
+    };
+
+    try {
+      setSaveLoading(true);
+      await employeeService.createEmployee(payload);
+      setOpenConfirmDialog(false);
+      setOpenSuccessDialog(true);
+    } catch (error) {
+      console.error("Employee creation failed:", error);
+      setSaveError('Ажилтан бүртгэх үед алдаа гарлаа.');
+      setOpenConfirmDialog(false);
+    } finally {
+      setSaveLoading(false);
+    }
   };
   
   const handleSuccessClose = () => {
@@ -212,6 +231,11 @@ export default function EmployeeRegister() {
                 <Typography variant="body2" color="text.secondary">
                   Ажилтны дэлгэрэнгүй мэдээллийг үнэн зөв оруулж бүртгэнэ үү.
                 </Typography>
+                {saveError && (
+                  <Typography variant="body2" color="error" sx={{ mt: 1 }}>
+                    {saveError}
+                  </Typography>
+                )}
               </Box>
             </Box>
             <Button 
@@ -219,6 +243,7 @@ export default function EmployeeRegister() {
               color="primary" 
               startIcon={<SaveIcon />}
               onClick={handleSave}
+              disabled={saveLoading}
               sx={{ 
                 borderRadius: '8px', 
                 textTransform: 'none',
@@ -407,6 +432,26 @@ export default function EmployeeRegister() {
                   />
                 </Grid>
 
+                <Grid item xs={12} sm={4}>
+                  <TextField
+                    fullWidth
+                    label="Анхны нууц үг"
+                    name="password"
+                    value={formData.password}
+                    onChange={handleFormChange}
+                    type="password"
+                    variant="outlined"
+                    size="small"
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <LockIcon color="primary" />
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+                </Grid>
+
                 {/* Row 4 */}
                 <Grid item xs={12} sm={4}>
                   <LocalizationProvider dateAdapter={AdapterDateFns}>
@@ -496,6 +541,7 @@ export default function EmployeeRegister() {
           <Button 
             variant="contained" 
             onClick={confirmSave}
+            disabled={saveLoading}
             sx={{ 
               borderRadius: '8px', 
               textTransform: 'none',

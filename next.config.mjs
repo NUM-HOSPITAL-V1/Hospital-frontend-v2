@@ -2,13 +2,21 @@
 const nextConfig = {
   output: "standalone",
   async rewrites() {
-    // Proxy API calls to the Node backend in dev/prod.
-    // Keep frontend code using API_BASE_URL="/api".
     const backendBaseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+
+    // If the frontend already talks to a same-origin /api path, do not rewrite again.
+    if (backendBaseUrl.startsWith("/")) {
+      return [];
+    }
+
+    const normalizedBackendBaseUrl = backendBaseUrl.endsWith("/api")
+      ? backendBaseUrl
+      : `${backendBaseUrl}/api`;
+
     return [
       {
         source: "/api/:path*",
-        destination: `${backendBaseUrl}/api/:path*`,
+        destination: `${normalizedBackendBaseUrl}/:path*`,
       },
     ];
   },

@@ -1,17 +1,16 @@
 'use client';
+
 import { useState } from 'react';
 import {
   Box,
   Card,
   CardContent,
   Typography,
-  ButtonGroup,
-  Button,
-  Divider,
   FormControl,
   InputLabel,
   Select,
-  MenuItem
+  MenuItem,
+  Divider,
 } from '@mui/material';
 import {
   LineChart,
@@ -21,168 +20,44 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
-  ResponsiveContainer
+  ResponsiveContainer,
 } from 'recharts';
-
-// Sample vital signs data for the last 7 days
-const sampleData = [
-  {
-    date: '04-17',
-    temperature: 36.6,
-    heartRate: 72,
-    bloodPressureSystolic: 122,
-    bloodPressureDiastolic: 78,
-    respiration: 14,
-    oxygenSaturation: 97
-  },
-  {
-    date: '04-18',
-    temperature: 36.7,
-    heartRate: 75,
-    bloodPressureSystolic: 124,
-    bloodPressureDiastolic: 80,
-    respiration: 15,
-    oxygenSaturation: 98
-  },
-  {
-    date: '04-19',
-    temperature: 37.2,
-    heartRate: 82,
-    bloodPressureSystolic: 130,
-    bloodPressureDiastolic: 84,
-    respiration: 17,
-    oxygenSaturation: 96
-  },
-  {
-    date: '04-20',
-    temperature: 37.5,
-    heartRate: 88,
-    bloodPressureSystolic: 135,
-    bloodPressureDiastolic: 86,
-    respiration: 18,
-    oxygenSaturation: 95
-  },
-  {
-    date: '04-21',
-    temperature: 37.1,
-    heartRate: 80,
-    bloodPressureSystolic: 128,
-    bloodPressureDiastolic: 82,
-    respiration: 16,
-    oxygenSaturation: 97
-  },
-  {
-    date: '04-22',
-    temperature: 36.8,
-    heartRate: 76,
-    bloodPressureSystolic: 125,
-    bloodPressureDiastolic: 78,
-    respiration: 15,
-    oxygenSaturation: 98
-  },
-  {
-    date: '04-23',
-    temperature: 36.7,
-    heartRate: 74,
-    bloodPressureSystolic: 120,
-    bloodPressureDiastolic: 76,
-    respiration: 14,
-    oxygenSaturation: 99
-  }
-];
+import { usePatientDashboard } from '@/app/(DashboardLayout)/components/patient/PatientDashboardContext';
 
 const VitalSignsChart = () => {
-  const [timeRange, setTimeRange] = useState('week');
   const [selectedMetric, setSelectedMetric] = useState('temperature');
-  
-  // Handle time range change
-  const handleTimeRangeChange = (range) => {
-    setTimeRange(range);
-  };
-  
-  // Handle metric change
+  const { vitals, latestVital, loading, error } = usePatientDashboard();
+
   const handleMetricChange = (event) => {
     setSelectedMetric(event.target.value);
   };
-  
-  // Get metric title and unit
-  const getMetricInfo = () => {
-    switch (selectedMetric) {
-      case 'temperature':
-        return { title: 'Биеийн халуун', unit: '°C', color: '#FF6384' };
-      case 'heartRate':
-        return { title: 'Зүрхний цохилт', unit: 'bpm', color: '#FF9F40' };
-      case 'bloodPressure':
-        return { title: 'Цусны даралт', unit: 'mmHg', color: '#4BC0C0' };
-      case 'respiration':
-        return { title: 'Амьсгалын давтамж', unit: 'brpm', color: '#36A2EB' };
-      case 'oxygenSaturation':
-        return { title: 'Хүчилтөрөгчийн хангамж', unit: '%', color: '#9966FF' };
-      default:
-        return { title: 'Биеийн халуун', unit: '°C', color: '#FF6384' };
-    }
-  };
-  
-  // Get chart data based on selected metric
-  const getChartData = () => {
-    // In a real app, you would filter data based on time range
-    // Here we're just using the sample data
-    return sampleData;
-  };
-  
-  const metricInfo = getMetricInfo();
-  const chartData = getChartData();
-  
-  const renderChartContent = () => {
-    switch (selectedMetric) {
-      case 'bloodPressure':
-        return (
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" />
-              <YAxis />
-              <Tooltip formatter={(value, name) => [value, name === 'bloodPressureSystolic' ? 'Систолик' : 'Диастолик']} />
-              <Legend />
-              <Line 
-                type="monotone" 
-                dataKey="bloodPressureSystolic" 
-                stroke="#4BC0C0" 
-                activeDot={{ r: 8 }} 
-                name="Систолик"
-              />
-              <Line 
-                type="monotone" 
-                dataKey="bloodPressureDiastolic" 
-                stroke="#36A2EB" 
-                activeDot={{ r: 8 }}
-                name="Диастолик"
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        );
-      default:
-        return (
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" />
-              <YAxis />
-              <Tooltip formatter={(value) => [value, metricInfo.title]} />
-              <Legend />
-              <Line 
-                type="monotone" 
-                dataKey={selectedMetric} 
-                stroke={metricInfo.color} 
-                activeDot={{ r: 8 }} 
-                name={metricInfo.title}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        );
-    }
-  };
-  
+
+  const chartData = vitals.map((item) => ({
+    date: item.chartDate,
+    temperature: item.temperature ?? null,
+    heartRate: item.right_heart_rate ?? item.left_heart_rate ?? null,
+    bloodPressureSystolic: item.right_systolic ?? item.left_systolic ?? null,
+    bloodPressureDiastolic: item.right_diastolic ?? item.left_diastolic ?? null,
+    respiration: item.respiration_rate ?? null,
+    oxygenSaturation: item.saturation ?? null,
+  }));
+
+  const metricInfo = {
+    temperature: { title: 'Биеийн халуун', unit: '°C', color: '#FF6384' },
+    heartRate: { title: 'Зүрхний цохилт', unit: 'bpm', color: '#FF9F40' },
+    bloodPressure: { title: 'Цусны даралт', unit: 'mmHg', color: '#4BC0C0' },
+    respiration: { title: 'Амьсгалын давтамж', unit: 'brpm', color: '#36A2EB' },
+    oxygenSaturation: { title: 'Хүчилтөрөгчийн хангамж', unit: '%', color: '#9966FF' },
+  }[selectedMetric];
+
+  const latestValue = selectedMetric === 'bloodPressure'
+    ? latestVital
+      ? `${latestVital.right_systolic ?? latestVital.left_systolic ?? '-'} / ${latestVital.right_diastolic ?? latestVital.left_diastolic ?? '-'} ${metricInfo.unit}`
+      : '-'
+    : chartData.length
+      ? `${chartData[chartData.length - 1][selectedMetric]} ${metricInfo.unit}`
+      : '-';
+
   return (
     <Card>
       <CardContent>
@@ -190,36 +65,11 @@ const VitalSignsChart = () => {
           <Typography variant="h6" fontWeight={600}>
             Амин үзүүлэлтийн шинжилгээ
           </Typography>
-          
-          <ButtonGroup size="small" variant="outlined">
-            <Button 
-              onClick={() => handleTimeRangeChange('week')}
-              variant={timeRange === 'week' ? 'contained' : 'outlined'}
-            >
-              7 хоног
-            </Button>
-            <Button 
-              onClick={() => handleTimeRangeChange('month')}
-              variant={timeRange === 'month' ? 'contained' : 'outlined'}
-            >
-              1 сар
-            </Button>
-            <Button 
-              onClick={() => handleTimeRangeChange('year')}
-              variant={timeRange === 'year' ? 'contained' : 'outlined'}
-            >
-              1 жил
-            </Button>
-          </ButtonGroup>
         </Box>
-        
+
         <FormControl fullWidth size="small" sx={{ mb: 2 }}>
           <InputLabel>Үзүүлэлт</InputLabel>
-          <Select
-            value={selectedMetric}
-            onChange={handleMetricChange}
-            label="Үзүүлэлт"
-          >
+          <Select value={selectedMetric} onChange={handleMetricChange} label="Үзүүлэлт">
             <MenuItem value="temperature">Биеийн халуун (°C)</MenuItem>
             <MenuItem value="heartRate">Зүрхний цохилт (bpm)</MenuItem>
             <MenuItem value="bloodPressure">Цусны даралт (mmHg)</MenuItem>
@@ -227,63 +77,68 @@ const VitalSignsChart = () => {
             <MenuItem value="oxygenSaturation">Хүчилтөрөгчийн хангамж (%)</MenuItem>
           </Select>
         </FormControl>
-        
+
         <Box sx={{ mb: 1 }}>
           <Typography variant="subtitle2" color="textSecondary">
             {metricInfo.title} - {metricInfo.unit}
           </Typography>
         </Box>
-        
-        {renderChartContent()}
-        
+
+        {error ? (
+          <Typography variant="body2" color="error.main" sx={{ mb: 2 }}>
+            {error}
+          </Typography>
+        ) : null}
+
+        {loading ? (
+          <Typography color="textSecondary">Өгөгдөл ачаалж байна...</Typography>
+        ) : chartData.length ? (
+          selectedMetric === 'bloodPressure' ? (
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="date" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Line type="monotone" dataKey="bloodPressureSystolic" stroke="#4BC0C0" name="Систолик" />
+                <Line type="monotone" dataKey="bloodPressureDiastolic" stroke="#36A2EB" name="Диастолик" />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="date" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Line type="monotone" dataKey={selectedMetric} stroke={metricInfo.color} name={metricInfo.title} />
+              </LineChart>
+            </ResponsiveContainer>
+          )
+        ) : (
+          <Typography color="textSecondary">Амин үзүүлэлтийн бодит мэдээлэл олдсонгүй.</Typography>
+        )}
+
         <Divider sx={{ my: 2 }} />
-        
+
         <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
           <Box>
             <Typography variant="caption" color="textSecondary">
               Сүүлийн хэмжилт
             </Typography>
             <Typography variant="body2" fontWeight={600}>
-              {selectedMetric === 'bloodPressure' 
-                ? `${chartData[chartData.length-1].bloodPressureSystolic}/${chartData[chartData.length-1].bloodPressureDiastolic} ${metricInfo.unit}`
-                : `${chartData[chartData.length-1][selectedMetric]} ${metricInfo.unit}`
-              }
+              {latestValue}
             </Typography>
           </Box>
-          
+
           <Box>
             <Typography variant="caption" color="textSecondary">
-              Дундаж
+              Нийт бичлэг
             </Typography>
             <Typography variant="body2" fontWeight={600}>
-              {selectedMetric === 'bloodPressure'
-                ? `${Math.round(chartData.reduce((sum, item) => sum + item.bloodPressureSystolic, 0) / chartData.length)}/${Math.round(chartData.reduce((sum, item) => sum + item.bloodPressureDiastolic, 0) / chartData.length)} ${metricInfo.unit}`
-                : `${(chartData.reduce((sum, item) => sum + item[selectedMetric], 0) / chartData.length).toFixed(1)} ${metricInfo.unit}`
-              }
-            </Typography>
-          </Box>
-          
-          <Box>
-            <Typography variant="caption" color="textSecondary">
-              Хамгийн өндөр
-            </Typography>
-            <Typography variant="body2" fontWeight={600}>
-              {selectedMetric === 'bloodPressure'
-                ? `${Math.max(...chartData.map(item => item.bloodPressureSystolic))}/${Math.max(...chartData.map(item => item.bloodPressureDiastolic))} ${metricInfo.unit}`
-                : `${Math.max(...chartData.map(item => item[selectedMetric])).toFixed(1)} ${metricInfo.unit}`
-              }
-            </Typography>
-          </Box>
-          
-          <Box>
-            <Typography variant="caption" color="textSecondary">
-              Хамгийн бага
-            </Typography>
-            <Typography variant="body2" fontWeight={600}>
-              {selectedMetric === 'bloodPressure'
-                ? `${Math.min(...chartData.map(item => item.bloodPressureSystolic))}/${Math.min(...chartData.map(item => item.bloodPressureDiastolic))} ${metricInfo.unit}`
-                : `${Math.min(...chartData.map(item => item[selectedMetric])).toFixed(1)} ${metricInfo.unit}`
-              }
+              {vitals.length}
             </Typography>
           </Box>
         </Box>

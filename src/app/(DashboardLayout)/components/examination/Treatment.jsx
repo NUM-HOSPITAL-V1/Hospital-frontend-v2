@@ -1,6 +1,5 @@
 import React from 'react';
-import { Box, Card, CardContent, Typography, Grid, TextField, IconButton } from '@mui/material';
-import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
+import { Box, Card, CardContent, Typography, Grid, TextField } from '@mui/material';
 
 const TreatmentTab = ({ formData, onChange }) => {
   return (
@@ -37,22 +36,25 @@ const TreatmentTab = ({ formData, onChange }) => {
               />
             </Grid>
             <Grid item xs={12}>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                <Typography variant="subtitle1" fontWeight="600">Дэглэм</Typography>
-                <IconButton 
-                  color="primary" 
-                  size="small" 
-                  sx={{ 
-                    ml: 1,
-                    boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.1)',
-                    '&:hover': {
-                      boxShadow: '0px 4px 8px rgba(0, 0, 0, 0.15)'
-                    }
-                  }}
-                >
-                  <AddCircleOutlineIcon />
-                </IconButton>
-              </Box>
+              <Typography variant="subtitle1" fontWeight="600" sx={{ mb: 2 }}>
+                Дэглэм
+              </Typography>
+              <TextField
+                label="Зөвлөмжийн гарчиг"
+                name="guideName"
+                value={formData.guideName || ''}
+                onChange={onChange}
+                fullWidth
+                placeholder="Жишээ: Хоолны дэглэм"
+                sx={{
+                  mb: 2,
+                  '& .MuiOutlinedInput-root': {
+                    '&:hover fieldset': {
+                      borderColor: 'primary.light',
+                    },
+                  },
+                }}
+              />
               <TextField
                 label="Дэглэмийн заавар"
                 name="regimen"

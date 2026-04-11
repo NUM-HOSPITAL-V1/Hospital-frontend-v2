@@ -22,6 +22,7 @@ const VitalSigns = ({ formData, onChange }) => {
                 name="temperature"
                 value={formData.temperature}
                 onChange={onChange}
+                required
                 fullWidth
                 size="small"
                 sx={{
@@ -39,6 +40,7 @@ const VitalSigns = ({ formData, onChange }) => {
                 name="bloodPressure"
                 value={formData.bloodPressure}
                 onChange={onChange}
+                required
                 fullWidth
                 size="small"
                 placeholder="120/80"
@@ -57,6 +59,7 @@ const VitalSigns = ({ formData, onChange }) => {
                 name="heartRate"
                 value={formData.heartRate}
                 onChange={onChange}
+                required
                 fullWidth
                 size="small"
                 sx={{
@@ -74,6 +77,7 @@ const VitalSigns = ({ formData, onChange }) => {
                 name="respiratoryRate"
                 value={formData.respiratoryRate}
                 onChange={onChange}
+                required
                 fullWidth
                 size="small"
                 sx={{
@@ -91,6 +95,7 @@ const VitalSigns = ({ formData, onChange }) => {
                 name="weight"
                 value={formData.weight}
                 onChange={onChange}
+                required
                 fullWidth
                 size="small"
                 sx={{
@@ -108,6 +113,7 @@ const VitalSigns = ({ formData, onChange }) => {
                 name="height"
                 value={formData.height}
                 onChange={onChange}
+                required
                 fullWidth
                 size="small"
                 sx={{

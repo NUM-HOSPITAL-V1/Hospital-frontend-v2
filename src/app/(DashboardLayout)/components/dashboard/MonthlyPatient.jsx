@@ -5,9 +5,11 @@ import { useTheme } from '@mui/material/styles';
 import { Stack, Typography, Avatar, Fab, Box } from '@mui/material';
 import { IconArrowUpRight, IconUsersGroup } from '@tabler/icons-react';
 import DashboardCard from '@/app/(DashboardLayout)/components/shared/DashboardCard';
+import { useDashboardData } from '@/app/(DashboardLayout)/components/dashboard/DashboardDataContext';
 
 const MonthlyPatientCount = () => {
   const theme = useTheme();
+  const { monthlyPatients, loading, error } = useDashboardData();
   const primary = theme.palette.primary.main;
   const secondary = theme.palette.secondary.main;
   const secondarylight = '#f5fcff';
@@ -42,7 +44,7 @@ const MonthlyPatientCount = () => {
     {
       name: '',
       color: primary,
-      data: [],
+      data: monthlyPatients.series,
     },
   ];
 
@@ -82,19 +84,24 @@ const MonthlyPatientCount = () => {
         >
           <Box>
             <Typography variant="h3" fontWeight="700">
-              0 хүн
+              {loading ? '...' : `${monthlyPatients.total} хүн`}
             </Typography>
             <Stack direction="row" spacing={1} my={1} alignItems="center">
               <Avatar sx={{ bgcolor: successlight, width: 27, height: 27 }}>
                 <IconArrowUpRight width={20} color="#39B69A" />
               </Avatar>
               <Typography variant="subtitle2" fontWeight="600">
-                0%
+                {loading ? '...' : `${monthlyPatients.percentChange}%`}
               </Typography>
               <Typography variant="subtitle2" color="textSecondary">
                 өмнөх сараас
               </Typography>
             </Stack>
+            {error ? (
+              <Typography variant="body2" color="error.main">
+                {error}
+              </Typography>
+            ) : null}
           </Box>
           
           <Box sx={{ mt: 'auto', pt: 1, width: '100%' }}>

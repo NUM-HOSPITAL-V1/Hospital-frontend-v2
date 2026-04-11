@@ -9,13 +9,16 @@ import {
   Avatar
 } from '@mui/material';
 import DashboardCard from '@/app/(DashboardLayout)/components/shared/DashboardCard';
-
-// TODO: Dashboard дээрх мэдээллийг API-аар сольж авах
-const patients = [];
+import { useDashboardData } from '@/app/(DashboardLayout)/components/dashboard/DashboardDataContext';
 
 const PatientTreatmentProgress = () => {
+  const { treatmentProgress, loading, error } = useDashboardData();
+
   return (
     <DashboardCard title="Эмчилгээний явц">
+      {loading ? (
+        <Typography color="textSecondary">Өгөгдөл ачаалж байна...</Typography>
+      ) : (
       <Box sx={{ overflow: 'auto', width: { xs: '280px', sm: 'auto' } }}>
         <Table
           aria-label="patient treatment progress table"
@@ -46,7 +49,7 @@ const PatientTreatmentProgress = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {patients.map((patient, idx) => (
+            {treatmentProgress.map((patient, idx) => (
               <TableRow key={`${patient.id}-${idx}`} hover>
                 <TableCell>
                   <Typography fontSize={15} fontWeight={500}>
@@ -93,9 +96,19 @@ const PatientTreatmentProgress = () => {
                 </TableCell>
               </TableRow>
             ))}
+            {!treatmentProgress.length ? (
+              <TableRow>
+                <TableCell colSpan={4}>
+                  <Typography color="textSecondary">
+                    {error || 'Эмчилгээний мэдээлэл олдсонгүй.'}
+                  </Typography>
+                </TableCell>
+              </TableRow>
+            ) : null}
           </TableBody>
         </Table>
       </Box>
+      )}
     </DashboardCard>
   );
 };

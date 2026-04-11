@@ -8,76 +8,50 @@ import {
   IconArchive
 } from '@tabler/icons-react';
 import DashboardCard from '@/app/(DashboardLayout)/components/shared/DashboardCard';
-
-// Treatment statistics data
-const stats = [
-  {
-    title: 'Нийт эмчилгээ',
-    value: 62,
-    icon: <IconStethoscope size={20} />,
-    iconBg: 'primary.light',
-    iconColor: 'primary.main',
-    change: '+12%',
-    isPositive: true
-  },
-  {
-    title: 'Эмийн хэрэглээ',
-    value: 157,
-    unit: 'нэгж',
-    icon: <IconPill size={20} />,
-    iconBg: 'info.light',
-    iconColor: 'info.main',
-    change: '+8%',
-    isPositive: true
-  },
-  {
-    title: 'Амин үзүүлэлт',
-    value: 84,
-    icon: <IconHeartbeat size={20} />,
-    iconBg: 'error.light',
-    iconColor: 'error.main',
-    change: '+15%',
-    isPositive: true
-  },
-  {
-    title: 'Төлөвлөсөн',
-    value: 28,
-    icon: <IconCalendarEvent size={20} />,
-    iconBg: 'warning.light',
-    iconColor: 'warning.main',
-    change: '-3%',
-    isPositive: false
-  }
-];
-
-// Treatment completion data
-const treatmentProgress = [
-  {
-    title: 'Хийгдсэн эмчилгээ',
-    value: 42,
-    percentage: 68,
-    color: 'success.main'
-  },
-  {
-    title: 'Хийгдэж буй эмчилгээ',
-    value: 12,
-    percentage: 19,
-    color: 'warning.main'
-  },
-  {
-    title: 'Хойшилсон эмчилгээ',
-    value: 8,
-    percentage: 13,
-    color: 'error.main'
-  }
-];
+import { useNurseDashboard } from '@/app/(DashboardLayout)/components/nurse/NurseDashboardContext';
 
 const TreatmentStats = () => {
+  const { stats, loading, error } = useNurseDashboard();
+  const cards = [
+    {
+      title: 'Нийт эмчилгээ',
+      value: stats.totalTreatments,
+      icon: <IconStethoscope size={20} />,
+      iconBg: 'primary.light',
+      iconColor: 'primary.main',
+    },
+    {
+      title: 'Амин үзүүлэлт',
+      value: stats.totalVitals,
+      icon: <IconHeartbeat size={20} />,
+      iconBg: 'error.light',
+      iconColor: 'error.main',
+    },
+    {
+      title: 'Дууссан',
+      value: stats.completedTreatments,
+      icon: <IconPill size={20} />,
+      iconBg: 'info.light',
+      iconColor: 'info.main',
+    },
+    {
+      title: 'Төлөвлөсөн',
+      value: stats.pendingTreatments,
+      icon: <IconCalendarEvent size={20} />,
+      iconBg: 'warning.light',
+      iconColor: 'warning.main',
+    },
+  ];
+
   return (
     <DashboardCard title="Эмчилгээний статистик">
+      {error ? (
+        <Typography variant="body2" color="error.main" sx={{ mb: 2 }}>
+          {error}
+        </Typography>
+      ) : null}
       <Grid container spacing={2}>
-        {/* Treatment counts */}
-        {stats.map((stat, index) => (
+        {cards.map((stat, index) => (
           <Grid item xs={6} key={index}>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
               <Avatar
@@ -133,18 +107,20 @@ const TreatmentStats = () => {
             <IconTrophy size={16} />
           </Avatar>
           <Typography variant="body2" fontWeight={500}>
-            Өнөөдрийн гүйцэтгэл: 12/15 эмчилгээ (80%)
+            {loading
+              ? 'Өгөгдөл ачаалж байна...'
+              : `Өнөөдрийн гүйцэтгэл: ${stats.todayCompletionPercent}%`}
           </Typography>
         </Box>
         <LinearProgress 
           variant="determinate" 
-          value={80} 
+          value={stats.todayCompletionPercent} 
           color="success"
           sx={{ height: 6, borderRadius: 5, mb: 2 }} 
         />
       </Box>
       
-      {treatmentProgress.map((item, index) => (
+      {stats.progressItems.map((item, index) => (
         <Box key={index} sx={{ mb: 1.5 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
             <Typography variant="body2" color="textSecondary">
@@ -195,10 +171,10 @@ const TreatmentStats = () => {
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'baseline' }}>
             <Typography variant="h6" fontWeight={600} sx={{ mr: 0.5 }}>
-              87%
+              {loading ? '...' : `${stats.monthCompletionPercent}%`}
             </Typography>
             <Typography variant="caption" sx={{ color: 'success.main', fontWeight: 600 }}>
-              (+5% өмнөх сараас)
+              ({stats.monthChangePercent >= 0 ? '+' : ''}{stats.monthChangePercent}% өмнөх сараас)
             </Typography>
           </Box>
         </Box>

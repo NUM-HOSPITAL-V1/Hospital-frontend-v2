@@ -16,6 +16,20 @@ import LocalHospitalIcon from "@mui/icons-material/LocalHospital";
  * @returns {Array} - Array of menu items filtered by user role and position
  */
 const Menuitems = (user) => {
+  const medicalStaffPositions = ["Doctor", "Nurse"];
+
+  const normalizePosition = (position) => {
+    if (!position || typeof position !== "string") {
+      return "";
+    }
+
+    const trimmed = position.trim().toLowerCase();
+    if (trimmed === "doctor") return "Doctor";
+    if (trimmed === "nurse") return "Nurse";
+
+    return position.trim();
+  };
+
   // Define all menu items with role and position access rules
   const allMenuItems = [
     {
@@ -105,7 +119,7 @@ const Menuitems = (user) => {
 
   // Get user role and position
   const userRole = user.user.role;
-  const userPosition = user.user.position;
+  const userPosition = normalizePosition(user.user.position);
 
   console.log("MenuItems userRole:", userRole);
 console.log("MenuItems userPosition:", userPosition);
@@ -120,6 +134,15 @@ console.log("MenuItems userPosition:", userPosition);
       return roleMatches;
     }
     
+    // If position is missing, still show medical-staff items that are shared by
+    // every supported medical-staff position so common navigation does not disappear.
+    if (!userPosition) {
+      return (
+        roleMatches &&
+        medicalStaffPositions.every((position) => item.positions.includes(position))
+      );
+    }
+
     // For medical staff, also check if their position is allowed
     return roleMatches && item.positions.includes(userPosition);
   });

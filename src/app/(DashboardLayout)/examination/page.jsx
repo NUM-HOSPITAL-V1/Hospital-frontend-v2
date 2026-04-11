@@ -26,6 +26,7 @@ export default function ExaminationPage() {
   const [examinations, setExaminations] = useState(initialExaminations);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState('');
+  const [actionError, setActionError] = useState('');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [anchorEl, setAnchorEl] = useState(null);
@@ -142,12 +143,33 @@ export default function ExaminationPage() {
   };
   
   const handleDelete = () => {
-    setOpenDeleteConfirm(true);
-    handleCloseMenu();
+    const id = selectedExam?.id;
+    if (!id) {
+      setOpenDeleteConfirm(false);
+      return;
+    }
+
+    setActionError('');
+    examinationService.deleteExamination(id)
+      .then(() => {
+        setExaminations((prev) => prev.filter((exam) => exam.id !== id));
+      })
+      .catch((error) => {
+        console.error('Error deleting examination:', error);
+        setActionError(error?.response?.data?.error || 'Үзлэг устгах үед алдаа гарлаа');
+      })
+      .finally(() => {
+        setOpenDeleteConfirm(false); // modal хаах
+      });
   };
   
   const handleViewDetails = () => {
     router.push(`/examinations/${selectedExam?.id}`);
+    handleCloseMenu();
+  };
+  
+  const handleOpenDeleteConfirm = () => {
+    setOpenDeleteConfirm(true);
     handleCloseMenu();
   };
   
@@ -167,8 +189,7 @@ export default function ExaminationPage() {
   };
   
   const confirmDelete = () => {
-    setExaminations((prev) => prev.filter((exam) => exam.id !== selectedExam.id));
-    setOpenDeleteConfirm(false);
+    handleDelete();
   };
   
   const cancelDelete = () => {
@@ -256,6 +277,11 @@ export default function ExaminationPage() {
           {fetchError ? (
             <Typography variant="body2" color="error" sx={{ mt: 1 }}>
               {fetchError}
+            </Typography>
+          ) : null}
+          {actionError ? (
+            <Typography variant="body2" color="error" sx={{ mt: 1 }}>
+              {actionError}
             </Typography>
           ) : null}
         </Box>
@@ -401,7 +427,7 @@ export default function ExaminationPage() {
             <Typography>Засах</Typography>
           </MenuItem>
           <MenuItem 
-            onClick={handleDelete}
+            onClick={handleOpenDeleteConfirm} // ✅ ЭНЭ ЧУХАЛ
             sx={{ 
               gap: 1,
               py: 1,

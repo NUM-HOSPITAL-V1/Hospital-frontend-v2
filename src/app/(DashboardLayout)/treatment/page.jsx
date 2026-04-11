@@ -1,12 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Box, Typography, IconButton } from '@mui/material';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import React, { useEffect, useState } from 'react';
+import { Alert, Box } from '@mui/material';
 import { useRouter } from 'next/navigation';
 import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import { mockTreatments } from '../components/treatment/data';
 import SearchBar from '../components/treatment/SearchBar';
 import StatusSummary from '../components/treatment/StatusSummary';
 import TreatmentTable from '../components/treatment/TreatmentTable';
@@ -14,11 +12,13 @@ import FilterDialog from '../components/treatment/FilterDialog';
 import TreatmentDetailsDialog from '../components/treatment/TreatmentDetailsDialog';
 import AddNoteDialog from '../components/treatment/AddNoteDialog';
 import PageHeader from '../components/treatment/PageHeader';
-
-
+import treatmentService from '../../service/treatmentService';
 
 const TreatmentListPage = () => {
   const router = useRouter();
+  const [treatments, setTreatments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState(new Date());
@@ -28,9 +28,116 @@ const TreatmentListPage = () => {
   const [tabValue, setTabValue] = useState(0);
   const [noteDialogOpen, setNoteDialogOpen] = useState(false);
   const [noteText, setNoteText] = useState('');
-  
-  // State to track how many times a treatment has been administered
-  const [administeredCounts, setAdministeredCounts] = useState({});
+  const [actionLoading, setActionLoading] = useState(false);
+  const getCurrentUser = () => {
+    if (typeof window === 'undefined') return null;
+    try {
+      return JSON.parse(localStorage.getItem('USER') || 'null');
+    } catch (parseError) {
+      return null;
+    }
+  };
+
+  const formatDate = (value) => {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    return date.toISOString().split('T')[0];
+  };
+
+  const formatTime = (value) => {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    return date.toLocaleTimeString('mn-MN', { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const mapStatus = (treatment) => {
+    if (treatment.sessionsCompleted >= treatment.totalQuantity && treatment.totalQuantity > 0) {
+      return 'Дууссан';
+    }
+    if (treatment.sessionsCompleted > 0) {
+      return 'Хийгдэж буй';
+    }
+    return 'Хүлээгдэж буй';
+  };
+
+  const transformTreatment = (treatment) => ({
+    id: treatment._id,
+    patientName: `${treatment.patient?.lastname || ''} ${treatment.patient?.firstname || ''}`.trim(),
+    patientId: treatment.patient?.register || treatment.patient?._id || '',
+    diagnosis: treatment.diagnosisType === 'in' ? 'Хэвтэн эмчлүүлэх' : 'Амбулатори',
+    doctorName: `${treatment.medicalStaff?.lastname || ''} ${treatment.medicalStaff?.firstname || ''}`.trim(),
+    scheduledDate: formatDate(treatment.date),
+    scheduledTime: formatTime(treatment.date),
+    status: mapStatus(treatment),
+    raw: treatment,
+    prescribedMedications: [],
+    prescribedTreatments: [
+      {
+        id: treatment._id,
+        name: treatment.treatmentType,
+        details: treatment.examination_id?.exam_type || treatment.examination_id?.doctors_examination || 'Үзлэгтэй холбоотой',
+        duration: `${treatment.totalQuantity || 0} удаа`,
+        frequency: 'Өдөрт 1',
+        days: `${treatment.totalQuantity || 0} өдөр`,
+        status: mapStatus(treatment),
+        totalSessions: treatment.totalQuantity || 0,
+        currentSessions: treatment.sessionsCompleted || 0,
+      },
+    ],
+    instructions: treatment.diagnosisType === 'in'
+      ? 'Хэвтэн эмчилгээний горим баримтална.'
+      : 'Амбулаторийн эмчилгээний зааврын дагуу үргэлжлүүлнэ.',
+  });
+
+  const getTreatmentId = (treatment) => treatment?._id || treatment?.id || '';
+
+  const buildTreatmentUpdatePayload = (treatment, sessionsCompleted) => {
+    const totalQuantity = Number(treatment?.totalQuantity || 0);
+    const normalizedSessions = totalQuantity > 0
+      ? Math.min(Number(sessionsCompleted || 0), totalQuantity)
+      : Number(sessionsCompleted || 0);
+
+    return {
+      sessionsCompleted: normalizedSessions,
+      status: totalQuantity > 0 && normalizedSessions >= totalQuantity ? 'Done' : 'Ongoing',
+    };
+  };
+
+  const applyUpdatedTreatment = (responseData, fallbackRaw) => {
+    const nextRaw = responseData || fallbackRaw;
+    const transformed = transformTreatment(nextRaw);
+    setSelectedTreatment(transformed);
+    setTreatments((prev) => prev.map((item) => (
+      item.id === transformed.id ? transformed : item
+    )));
+  };
+
+  const loadTreatments = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      const currentUser = getCurrentUser();
+      const userRole = currentUser?.user?.role;
+      const userPosition = currentUser?.user?.position;
+      const shouldLoadAllTreatments = userRole === 'Admin' || userPosition === 'Nurse';
+      const response = shouldLoadAllTreatments
+        ? await treatmentService.getAllTreatments()
+        : await treatmentService.getMyTreatments();
+      setTreatments((response?.data || []).map(transformTreatment));
+    } catch (fetchError) {
+      console.error('Error fetching treatments:', fetchError);
+      setError(fetchError?.response?.data?.error || 'Эмчилгээний мэдээлэл татахад алдаа гарлаа');
+      setTreatments([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadTreatments();
+  }, []);
 
   // Filter handlers
   const handleStatusFilterChange = (event) => {
@@ -54,7 +161,7 @@ const TreatmentListPage = () => {
     console.log('Filters applied:', { statusFilter, dateFilter });
   };
 
-  const filteredTreatments = mockTreatments.filter((treatment) => {
+  const filteredTreatments = treatments.filter((treatment) => {
     // Фильтр төлөвөөр
     if (statusFilter !== 'all' && treatment.status !== statusFilter) {
       return false;
@@ -69,10 +176,17 @@ const TreatmentListPage = () => {
   });
 
   // Detail dialog functions
-  const handleViewDetails = (treatment) => {
-    setSelectedTreatment(treatment);
-    setDetailsOpen(true);
-    setTabValue(0); // Анхнаасаа Эмийн tab
+  const handleViewDetails = async (treatment) => {
+    try {
+      setError('');
+      const response = await treatmentService.getTreatmentById(treatment.id);
+      setSelectedTreatment(transformTreatment(response?.data || treatment.raw || treatment));
+      setDetailsOpen(true);
+      setTabValue(0);
+    } catch (detailError) {
+      console.error('Error fetching treatment details:', detailError);
+      setError(detailError?.response?.data?.error || 'Эмчилгээний дэлгэрэнгүй татахад алдаа гарлаа');
+    }
   };
 
   const handleCloseDetails = () => {
@@ -84,78 +198,73 @@ const TreatmentListPage = () => {
   };
 
   const handleBack = () => {
-    router.push('/dashboard');
+    router.push('/');
   };
 
-  // Эмийн үйлдлийн логик
-  const handleAdministerMedication = (medicationId) => {
-    if (selectedTreatment) {
-      const updatedMedications = selectedTreatment.prescribedMedications.map((med) => {
-        if (med.id === medicationId) {
-          // materialTaken шинж чанар байгаа эсэхийг шалгана.
-          if (!med.materialTaken) {
-            // Хэрэв эхлэх үед материал авч аваагүй бол, материалыг авч дууссан байдлаар тэмдэглэнэ.
-            return { ...med, status: 'Дууссан', materialTaken: true };
-          } else {
-            console.log('Энэ эмийн материал аль хэдийн авч дууссан байна.');
-            return med;
-          }
-        }
-        return med;
-      });
-      setSelectedTreatment({
-        ...selectedTreatment,
-        prescribedMedications: updatedMedications
-      });
+  const handleAdministerMedication = () => {};
+
+  const handleAdministerTreatment = async (treatmentId) => {
+    if (!selectedTreatment?.raw) {
+      return;
     }
-  };
 
-  // Эмчилгээний үйлдлийн логик: Тухайн эмчилгээ 5 дахь үйлдлээс зөвхөн 3 удаа гүйцэтгэх болзлыг шалгана.
-  const handleAdministerTreatment = (treatmentId) => {
-    const currentCount = administeredCounts[treatmentId] || 0;
-    if (currentCount < 3) {
-      const newCount = currentCount + 1;
-      const updatedTreatments = selectedTreatment.prescribedTreatments.map((trt) =>
-        trt.id === treatmentId
-          ? {
-              ...trt,
-              status: newCount >= 3 ? 'Дууссан' : trt.status,
-              administeredCount: newCount
-            }
-          : trt
-      );
-      setSelectedTreatment({
-        ...selectedTreatment,
-        prescribedTreatments: updatedTreatments
+    const selectedTreatmentId = getTreatmentId(selectedTreatment.raw);
+    if (!selectedTreatmentId || selectedTreatmentId !== treatmentId) {
+      return;
+    }
+
+    const totalQuantity = selectedTreatment.raw.totalQuantity || 0;
+    const currentSessions = selectedTreatment.raw.sessionsCompleted || 0;
+    const nextSessionsCompleted = Math.min(currentSessions + 1, totalQuantity);
+
+    try {
+      setActionLoading(true);
+      setError('');
+      const payload = buildTreatmentUpdatePayload(selectedTreatment.raw, nextSessionsCompleted);
+      const response = await treatmentService.updateTreatment(treatmentId, payload);
+      applyUpdatedTreatment(response?.data, {
+        ...selectedTreatment.raw,
+        ...payload,
       });
-      setAdministeredCounts({
-        ...administeredCounts,
-        [treatmentId]: newCount
-      });
-      console.log(`Эмчилгээ ${treatmentId}-г ${newCount} удаа гүйцэтгэсэн байна.`);
-    } else {
-      console.log(`Эмчилгээ ${treatmentId} шаардлагатай тоо (3 удаа) дууссан байна.`);
+    } catch (updateError) {
+      console.error('Error updating treatment progress:', updateError);
+      setError(updateError?.response?.data?.error || 'Эмчилгээний төлөв шинэчлэхэд алдаа гарлаа');
+    } finally {
+      setActionLoading(false);
     }
   };
 
   // Бүх үйлдлийг дуусгах
-  const handleCompleteAll = () => {
-    if (selectedTreatment) {
-      const updatedMedications = selectedTreatment.prescribedMedications.map((med) => ({
-        ...med,
-        status: 'Дууссан',
-        materialTaken: true
-      }));
-      const updatedTreatments = selectedTreatment.prescribedTreatments.map((trt) => ({
-        ...trt,
-        status: 'Дууссан'
-      }));
-      setSelectedTreatment({
-        ...selectedTreatment,
-        status: 'Дууссан',
-        prescribedMedications: updatedMedications,
-        prescribedTreatments: updatedTreatments
+  const handleCompleteAll = async () => {
+    if (!selectedTreatment?.raw) {
+      return;
+    }
+
+    const treatmentId = getTreatmentId(selectedTreatment.raw);
+    const totalQuantity = selectedTreatment.raw.totalQuantity || 0;
+    const payload = buildTreatmentUpdatePayload(
+      selectedTreatment.raw,
+      totalQuantity > 0 ? totalQuantity : selectedTreatment.raw.sessionsCompleted || 0
+    );
+
+    if (!treatmentId) {
+      setError('Эмчилгээний ID олдсонгүй');
+      return;
+    }
+
+    try {
+      setActionLoading(true);
+      setError('');
+      const response = await treatmentService.updateTreatment(treatmentId, payload);
+      applyUpdatedTreatment(response?.data, {
+        ...selectedTreatment.raw,
+        ...payload,
       });
+    } catch (updateError) {
+      console.error('Error completing treatment:', updateError);
+      setError(updateError?.response?.data?.error || 'Эмчилгээг дуусгахад алдаа гарлаа');
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -186,6 +295,12 @@ const TreatmentListPage = () => {
           onOpenFilterDialog={handleOpenFilterDialog}
         />
 
+        {error ? (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+        ) : null}
+
         {/* Search */}
         <SearchBar 
           value={searchQuery}
@@ -193,11 +308,11 @@ const TreatmentListPage = () => {
         />
 
         {/* Status summary */}
-        <StatusSummary treatments={mockTreatments} />
+        <StatusSummary treatments={treatments} />
 
         {/* Treatment list */}
         <TreatmentTable 
-          treatments={filteredTreatments}
+          treatments={loading ? [] : filteredTreatments}
           onViewDetails={handleViewDetails}
         />
 
@@ -222,6 +337,7 @@ const TreatmentListPage = () => {
           onAdministerTreatment={handleAdministerTreatment}
           onCompleteAll={handleCompleteAll}
           onOpenNoteDialog={handleOpenNoteDialog}
+          actionLoading={actionLoading}
         />
 
         <AddNoteDialog 

@@ -1,13 +1,14 @@
 import React from 'react';
-import { Select, MenuItem } from '@mui/material';
+import { Select, MenuItem, Typography } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import DashboardCard from '@/app/(DashboardLayout)/components/shared/DashboardCard';
+import { useDashboardData } from '@/app/(DashboardLayout)/components/dashboard/DashboardDataContext';
 import dynamic from "next/dynamic";
 const Chart = dynamic(() => import("react-apexcharts"), { ssr: false });
 
 const PatientOverview = () => {
-    // select
-    const [month, setMonth] = React.useState('1');
+    const [month, setMonth] = React.useState('6');
+    const { patientOverview, loading, error } = useDashboardData();
 
     const handleChange = (event) => {
         setMonth(event.target.value);
@@ -67,7 +68,7 @@ const PatientOverview = () => {
             tickAmount: 4,
         },
         xaxis: {
-            categories: [],
+            categories: patientOverview.categories,
             axisBorder: {
                 show: false,
             },
@@ -77,7 +78,7 @@ const PatientOverview = () => {
             fillSeriesColor: false,
         },
     };
-    const seriescolumnchart = [];
+    const seriescolumnchart = patientOverview.series;
 
     return (
         <DashboardCard title="Үйлчлүүлэгчдийн тойм" action={
@@ -88,15 +89,21 @@ const PatientOverview = () => {
                 size="small"
                 onChange={handleChange}
             >
-                <MenuItem value={1}>Өгөгдөл алга</MenuItem>
+                <MenuItem value="6">Сүүлийн 6 сар</MenuItem>
             </Select>
         }>
-            <Chart
-                options={optionscolumnchart}
-                series={seriescolumnchart}
-                type="bar"
-                height={370} width={"100%"}
-            />
+            {loading || error ? (
+                <Typography color="textSecondary">
+                    {loading ? 'Өгөгдөл ачаалж байна...' : error}
+                </Typography>
+            ) : (
+                <Chart
+                    options={optionscolumnchart}
+                    series={seriescolumnchart}
+                    type="bar"
+                    height={370} width={"100%"}
+                />
+            )}
         </DashboardCard>
     );
 };

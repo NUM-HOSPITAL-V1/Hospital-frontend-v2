@@ -17,6 +17,16 @@ const DiagnosisTab = ({
   diagnosisOptions, 
   actionOptions 
 }) => {
+  const selectedDiagnosis =
+    diagnosisOptions.find((option) => option.code === formData.diagnosisCode)
+    || diagnosisOptions.find((option) => option.label === formData.diagnosis)
+    || null;
+
+  const selectedAction =
+    actionOptions.find((option) => option.code === formData.actionCode)
+    || actionOptions.find((option) => option.label === formData.action)
+    || null;
+
   return (
     <Card sx={{ 
       mb: 3, 
@@ -119,12 +129,15 @@ const DiagnosisTab = ({
             <Grid item xs={12}>
               <Autocomplete
                 options={diagnosisOptions}
+                value={selectedDiagnosis}
+                isOptionEqualToValue={(option, value) => option.code === value.code}
                 getOptionLabel={(option) => `${option.code} - ${option.label}`}
                 onChange={onDiagnosisChange}
                 renderInput={(params) => (
                   <TextField
                     {...params}
                     label="Онош"
+                    required
                     size="small"
                     fullWidth
                     sx={{
@@ -141,12 +154,15 @@ const DiagnosisTab = ({
             <Grid item xs={12}>
               <Autocomplete
                 options={actionOptions}
+                value={selectedAction}
+                isOptionEqualToValue={(option, value) => option.code === value.code}
                 getOptionLabel={(option) => `${option.code} - ${option.label}`}
                 onChange={onActionChange}
                 renderInput={(params) => (
                   <TextField
                     {...params}
                     label="Хийсэн ажилбар"
+                    required
                     size="small"
                     fullWidth
                     sx={{

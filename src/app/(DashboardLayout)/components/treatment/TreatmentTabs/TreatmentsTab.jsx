@@ -28,23 +28,9 @@ const getStatusColor = (status) => {
 };
 
 const TreatmentsTab = ({ treatments, onAdministerTreatment }) => {
-  const [administeredCounts, setAdministeredCounts] = useState({});
-
   const handleAdminister = (treatment) => {
-    const id = treatment.id;
-    const totalDays = parseInt(treatment.days.replace(/\D/g, ''), 10); // "3 өдөр" → 3
-
-    const newCount = (administeredCounts[id] || 0) + 1;
-
-    setAdministeredCounts((prev) => ({
-      ...prev,
-      [id]: newCount
-    }));
-
-    // Автомат төлөв шинэчлэх
     if (onAdministerTreatment) {
-      const newStatus = newCount >= totalDays ? 'Дууссан' : 'Хийгдэж буй';
-      onAdministerTreatment(id, newStatus);
+      onAdministerTreatment(treatment.id);
     }
   };
 
@@ -70,8 +56,8 @@ const TreatmentsTab = ({ treatments, onAdministerTreatment }) => {
             <TableBody>
               {treatments.map((treatment) => {
                 const id = treatment.id;
-                const done = administeredCounts[id] || 0;
-                const total = parseInt(treatment.days.replace(/\D/g, ''), 10);
+                const done = treatment.currentSessions || 0;
+                const total = treatment.totalSessions || parseInt(treatment.days.replace(/\D/g, ''), 10) || 0;
 
                 const isCompleted = done >= total;
                 const currentStatus = isCompleted ? 'Дууссан' : done > 0 ? 'Хийгдэж буй' : treatment.status;

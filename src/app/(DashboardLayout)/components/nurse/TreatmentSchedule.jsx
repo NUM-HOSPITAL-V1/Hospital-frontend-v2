@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Box,
   Table,
@@ -21,19 +21,69 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  TextField
+  TextField,
+  Alert
 } from '@mui/material';
 import { IconCheck, IconClock, IconNotes, IconStethoscope } from '@tabler/icons-react';
 import DashboardCard from '@/app/(DashboardLayout)/components/shared/DashboardCard';
-
-// TODO: Nurse/medical staff dashboard дээрх хуваарийг API-аар сольж авах
-const treatments = [];
+import treatmentService from '@/app/service/treatmentService';
 
 const TreatmentSchedule = () => {
+  const [treatments, setTreatments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [filter, setFilter] = useState('all');
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedTreatment, setSelectedTreatment] = useState(null);
   const [notes, setNotes] = useState('');
+
+  const formatTime = (value) => {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    return date.toLocaleTimeString('mn-MN', { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const mapStatus = (treatment) => {
+    if (treatment.sessionsCompleted >= treatment.totalQuantity && treatment.totalQuantity > 0) {
+      return 'Дууссан';
+    }
+    if (treatment.sessionsCompleted > 0) {
+      return 'Хийгдэж буй';
+    }
+    return 'Хүлээгдэж буй';
+  };
+
+  const transformTreatment = (treatment) => ({
+    id: treatment._id,
+    patientName: `${treatment.patient?.lastname || ''} ${treatment.patient?.firstname || ''}`.trim(),
+    patientId: treatment.patient?.register || treatment.patient?._id || '',
+    department: treatment.diagnosisType === 'in' ? 'Хэвтэн' : 'Амбулатори',
+    treatment: treatment.treatmentType || 'Тодорхойгүй',
+    time: formatTime(treatment.date),
+    status: mapStatus(treatment),
+    notes: treatment.notes || '',
+    raw: treatment,
+  });
+
+  const loadTreatments = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      const response = await treatmentService.getAllTreatments();
+      setTreatments((response?.data || []).map(transformTreatment));
+    } catch (fetchError) {
+      console.error('Error fetching nurse treatment schedule:', fetchError);
+      setError(fetchError?.response?.data?.error || 'Эмчилгээний хуваарь татахад алдаа гарлаа');
+      setTreatments([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadTreatments();
+  }, []);
 
   const handleFilterChange = (event) => {
     setFilter(event.target.value);
@@ -80,6 +130,28 @@ const TreatmentSchedule = () => {
     setOpenDialog(false);
   };
   
+  const handleUpdateTreatmentStatus = async (treatment, nextSessionsCompleted) => {
+    try {
+      setError('');
+      const response = await treatmentService.updateTreatment(treatment.id, {
+        sessionsCompleted: nextSessionsCompleted,
+      });
+      const updatedTreatment = transformTreatment(response?.data || {
+        ...treatment.raw,
+        sessionsCompleted: nextSessionsCompleted,
+      });
+      setTreatments((prev) => prev.map((item) => (
+        item.id === treatment.id ? updatedTreatment : item
+      )));
+      if (selectedTreatment?.id === treatment.id) {
+        setSelectedTreatment(updatedTreatment);
+      }
+    } catch (updateError) {
+      console.error('Error updating nurse treatment schedule:', updateError);
+      setError(updateError?.response?.data?.error || 'Эмчилгээний төлөв шинэчлэхэд алдаа гарлаа');
+    }
+  };
+
   const handleSaveNotes = () => {
     // Here you would update the notes in your actual data
     console.log(`Saving notes for treatment ${selectedTreatment?.id}: ${notes}`);
@@ -89,7 +161,7 @@ const TreatmentSchedule = () => {
   return (
     <DashboardCard 
       title="Эмчилгээний хуваарь" 
-      subtitle={`${treatments.length} эмчилгээ өнөөдөр`}
+      subtitle={loading ? 'Уншиж байна...' : `${treatments.length} эмчилгээ`}
       action={
         <FormControl variant="outlined" size="small" sx={{ minWidth: 150 }}>
           <InputLabel>Төлөв</InputLabel>
@@ -106,6 +178,12 @@ const TreatmentSchedule = () => {
         </FormControl>
       }
     >
+      {error ? (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      ) : null}
+
       <TableContainer component={Paper} sx={{ boxShadow: 'none' }}>
         <Table sx={{ minWidth: 650 }} aria-label="treatment schedule table">
           <TableHead>
@@ -118,7 +196,7 @@ const TreatmentSchedule = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {filteredTreatments.map((treatment) => (
+            {(loading ? [] : filteredTreatments).map((treatment) => (
               <TableRow key={treatment.id} hover>
                 <TableCell>
                   <Box>
@@ -154,6 +232,10 @@ const TreatmentSchedule = () => {
                         size="small"
                         color="primary"
                         sx={{ ml: 1 }}
+                        onClick={() => handleUpdateTreatmentStatus(
+                          treatment,
+                          Math.min((treatment.raw?.sessionsCompleted || 0) + 1, treatment.raw?.totalQuantity || 0)
+                        )}
                       >
                         Эхлүүлэх
                       </Button>
@@ -164,6 +246,10 @@ const TreatmentSchedule = () => {
                         size="small"
                         color="success"
                         sx={{ ml: 1 }}
+                        onClick={() => handleUpdateTreatmentStatus(
+                          treatment,
+                          treatment.raw?.totalQuantity || treatment.raw?.sessionsCompleted || 0
+                        )}
                       >
                         Дуусгах
                       </Button>
@@ -172,6 +258,13 @@ const TreatmentSchedule = () => {
                 </TableCell>
               </TableRow>
             ))}
+            {!loading && filteredTreatments.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} align="center">
+                  Эмчилгээний мэдээлэл олдсонгүй
+                </TableCell>
+              </TableRow>
+            ) : null}
           </TableBody>
         </Table>
       </TableContainer>

@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { Box } from '@mui/material';
 import { Alert } from 'antd';
 import { useRouter } from 'next/navigation';
-import { actionOptions, diagnosisOptions } from '../../components/examination/mockdata';
+import { actionOptions, diagnosisOptions } from '../mockdata';
 import Header from '../../components/examination/Header';
 import PatientInfo from '../../components/examination/PatientInfo';
 import PatientAllergies from '../../components/examination/Allergy';
@@ -20,6 +20,8 @@ import PatientSearchDialog from '../../components/examination/PatientSearchDialo
 import PatientMedicalHistory from '../../components/examination/MedicalHistory';
 import examinationService from '../../../service/examinationService';
 import patientService from '../../../service/patientService';
+import vitalService from '../../../service/vitalService';
+import prescriptionService from '../../../service/prescriptionService';
 
 export default function CreateExaminationPage() {
   const router = useRouter();
@@ -52,7 +54,12 @@ export default function CreateExaminationPage() {
     weight: '',
     height: '',
     treatmentInstructions: '',
+    guideName: '',
     regimen: '',
+    medicationName: '',
+    medicationDose: '',
+    medicationFrequency: '',
+    medicationDescription: '',
     prescriptionNotes: ''
   });
 
@@ -201,48 +208,185 @@ export default function CreateExaminationPage() {
     showNotification('Архаг өвчний мэдээлэл шинэчлэгдлээ');
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-  
-    // Хэрвээ үйлчлүүлэгч сонгогдоогүй бол
-    if (!selectedPatient) {
-      showNotification('Та үйлчлүүлэгч сонгоно уу', 'warning');
-      setLoading(false);
-      return;
-    }
-  
-    try {
-      const payload = {
-        patient: selectedPatient.id,
-        exam_date: formData.date,
-        doctors_examination: examinationTypeMap[formData.type] || 'Initial',
-        exam_type: formData.type,
-        illness: formData.diagnosis || formData.notes || 'Онош тодорхойгүй',
-        surgery: formData.action || '',
-        reason: formData.notes || '',
-        callback: false,
-        sendToHigherLevel: false,
-        isVioleted: false,
-        sickDays: 0,
-        status: examinationStatusMap[formData.status] || 'Ongoing',
-      };
+  const requiredVitalFields = [
+    { key: 'temperature', label: 'Биеийн халуун' },
+    { key: 'bloodPressure', label: 'Цусны даралт' },
+    { key: 'heartRate', label: 'Зүрхний цохилт' },
+    { key: 'respiratoryRate', label: 'Амьсгалын хэмнэл' },
+    { key: 'weight', label: 'Жин' },
+    { key: 'height', label: 'Өндөр' },
+  ];
 
-      await examinationService.createExamination(payload);
-      showNotification('Амжилттай хадгалагдлаа');
-      setTimeout(() => {
-        router.push('/examination');
-      }, 800);
-    } catch (error) {
-      console.error('Error submitting examination:', error);
-      const validationMessage = Array.isArray(error?.response?.data?.errors)
-        ? error.response.data.errors.map((item) => item.message).join(', ')
-        : null;
-      showNotification(validationMessage || error?.response?.data?.error || 'Хадгалах үед алдаа гарлаа', 'error');
-    } finally {
-      setLoading(false);
+const handleSubmit = async (e) => {
+  e.preventDefault();
+
+  // 🔴 REQUIRED VALIDATION
+  if (!selectedPatient) {
+    showNotification('Та үйлчлүүлэгч сонгоно уу', 'warning');
+    return;
+  }
+
+  if (!formData.diagnosis) {
+    showNotification('Онош сонгоно уу', 'warning');
+    return;
+  }
+
+  if (!formData.action) {
+    showNotification('Хийсэн ажилбар сонгоно уу', 'warning');
+    return;
+  }
+
+  const missingVital = requiredVitalFields.find(
+    ({ key }) => !String(formData[key] ?? '').trim()
+  );
+
+  if (missingVital) {
+    showNotification(`${missingVital.label} бөглөнө үү`, 'warning');
+    setTabValue(0);
+    return;
+  }
+
+  const bloodPressurePattern = /^\d+\s*\/\s*\d+$/;
+
+  if (!bloodPressurePattern.test(String(formData.bloodPressure).trim())) {
+    showNotification('Цусны даралтыг 120/80 хэлбэрээр оруулна уу', 'warning');
+    setTabValue(0);
+    return;
+  }
+
+  setLoading(true);
+
+  try {
+    const payload = {
+      patient: selectedPatient.id,
+      exam_date: formData.date,
+      doctors_examination: examinationTypeMap[formData.type] || 'Initial',
+      exam_type: formData.type,
+
+      // 🔥 FIX: fallback устгасан
+      illness: formData.diagnosis,
+
+      surgery: formData.action || '',
+      reason: formData.notes || '',
+      callback: false,
+      sendToHigherLevel: false,
+      isVioleted: false,
+      sickDays: 0,
+      status: examinationStatusMap[formData.status] || 'Ongoing',
+    };
+
+    const examinationResponse = await examinationService.createExamination(payload);
+    const examinationId = examinationResponse?.data?._id;
+
+    const warnings = [];
+
+    // 🟢 VITAL SIGNS (optional)
+    const hasVitalSigns = [
+      formData.temperature,
+      formData.bloodPressure,
+      formData.heartRate,
+      formData.respiratoryRate,
+      formData.weight,
+      formData.height,
+    ].some((value) => value !== '' && value !== null && value !== undefined);
+
+    if (hasVitalSigns) {
+      try {
+        const [systolic, diastolic] = String(formData.bloodPressure || '')
+          .split('/')
+          .map((value) => Number(value.trim()));
+
+        await vitalService.createVitalSigns({
+          patient: selectedPatient.id,
+          date: formData.date,
+          temperature: formData.temperature === '' ? undefined : Number(formData.temperature),
+          right_systolic: Number.isFinite(systolic) ? systolic : undefined,
+          right_diastolic: Number.isFinite(diastolic) ? diastolic : undefined,
+          right_heart_rate: formData.heartRate === '' ? undefined : Number(formData.heartRate),
+          respiration_rate: formData.respiratoryRate === '' ? undefined : Number(formData.respiratoryRate),
+          weight: formData.weight === '' ? undefined : Number(formData.weight),
+          height: formData.height === '' ? undefined : Number(formData.height),
+        });
+      } catch (error) {
+        console.error('Error creating vital signs:', error);
+        warnings.push('Амин үзүүлэлт хадгалагдсангүй');
+      }
     }
-  };
+
+    // 🟢 TREATMENT / PRESCRIPTION (OPTIONAL)
+    const guideDescription = [formData.treatmentInstructions, formData.regimen]
+      .filter((value) => value && String(value).trim() !== '')
+      .join('\n\n')
+      .trim();
+
+    const hasGuide = guideDescription.length > 0;
+
+    const hasMedication = [
+      formData.medicationName,
+      formData.medicationDose,
+      formData.medicationFrequency,
+    ].every((value) => value && String(value).trim() !== '');
+
+    if (hasGuide || hasMedication) {
+      try {
+        const prescriptionResponse = await prescriptionService.createPrescription({
+          patient: selectedPatient.id,
+          date: formData.date,
+          examination_id: examinationId,
+        });
+
+        const prescriptionId = prescriptionResponse?.data?._id;
+
+        if (prescriptionId && hasGuide) {
+          await prescriptionService.createPrescribedGuide({
+            name: formData.guideName?.trim() || 'Эмчилгээний заавар',
+            description: guideDescription,
+            patient: selectedPatient.id,
+            prescription: prescriptionId,
+          });
+        }
+
+        if (prescriptionId && hasMedication) {
+          await prescriptionService.createPrescribedMed({
+            name: formData.medicationName.trim(),
+            description: formData.medicationDescription || formData.prescriptionNotes || '',
+            dose: formData.medicationDose.trim(),
+            frequency: formData.medicationFrequency.trim(),
+            patient: selectedPatient.id,
+            prescription: prescriptionId,
+          });
+        }
+      } catch (error) {
+        console.error('Error creating prescription:', error);
+        warnings.push('Жор хадгалагдсангүй');
+      }
+    }
+
+    showNotification(
+      warnings.length > 0
+        ? `Үзлэг хадгалагдлаа. ${warnings.join(', ')}`
+        : 'Амжилттай хадгалагдлаа'
+    );
+
+    setTimeout(() => {
+      router.push('/examination');
+    }, 800);
+
+  } catch (error) {
+    console.error('Error submitting examination:', error);
+
+    const validationMessage = Array.isArray(error?.response?.data?.errors)
+      ? error.response.data.errors.map((item) => item.message).join(', ')
+      : null;
+
+    showNotification(
+      validationMessage || error?.response?.data?.error || 'Хадгалах үед алдаа гарлаа',
+      'error'
+    );
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Filter patients based on search
   const filteredPatients = patients.filter(patient => {
@@ -342,27 +486,23 @@ export default function CreateExaminationPage() {
 
       {/* Notification component */}
       {notification && (
-        <Box
-          sx={{
-            position: 'fixed',
-            bottom: 16,
-            left: '50%',
-            transform: 'translateX(-50%)',
-            zIndex: 2000,
-            minWidth: 300,
-            maxWidth: '80%'
-          }}
-        >
-          <Alert 
-            severity={notification.severity} 
-            variant="filled" 
-            onClose={() => setNotification(null)}
-            sx={{ boxShadow: '0px 3px 8px rgba(0, 0, 0, 0.2)' }}
-          >
-            {notification.message}
-          </Alert>
-        </Box>
-      )}
+  <Box
+    sx={{
+      position: 'fixed',
+      bottom: 16,
+      left: '50%',
+      transform: 'translateX(-50%)',
+      zIndex: 9999
+    }}
+  >
+    <Alert
+      message={notification.message}
+      type={notification.severity}
+      showIcon
+      closable
+    />
+  </Box>
+)}
     </Box>
   );
 }

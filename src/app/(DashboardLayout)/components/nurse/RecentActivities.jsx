@@ -21,27 +21,19 @@ import {
     timelineOppositeContentClasses
   } from '@mui/lab';
   import {
-    IconStethoscope,
-    IconPill,
-    IconHeartbeat,
-    IconNotes,
-    IconClipboardText,
     IconCheck,
     IconDotsVertical,
-    IconCalendarEvent,
     IconClock,
-    IconUserPlus,
     IconArrowRight
   } from '@tabler/icons-react';
   import { useState } from 'react';
   import DashboardCard from '@/app/(DashboardLayout)/components/shared/DashboardCard';
-  
-  // TODO: Dashboard дээрх "сүүлийн үйл ажиллагаа"-г API-аар сольж авах
-  const activities = [];
+  import { useNurseDashboard } from '@/app/(DashboardLayout)/components/nurse/NurseDashboardContext';
   
   const RecentActivities = () => {
     const [menuAnchor, setMenuAnchor] = useState(null);
     const [filter, setFilter] = useState('all'); // 'all', 'completed', 'upcoming'
+    const { activities, loading, error } = useNurseDashboard();
   
     const handleOpenMenu = (event) => {
       setMenuAnchor(event.currentTarget);
@@ -99,6 +91,11 @@ import {
           </>
         }
       >
+        {error ? (
+          <Typography variant="body2" color="error.main" sx={{ mb: 2 }}>
+            {error}
+          </Typography>
+        ) : null}
         <Timeline
           sx={{
             p: 0,
@@ -123,7 +120,7 @@ import {
             },
           }}
         >
-          {filteredActivities.map((activity, index) => (
+          {(loading ? [] : filteredActivities).map((activity, index) => (
             <TimelineItem key={activity.id}>
               <TimelineOppositeContent
                 color="text.secondary"
@@ -157,7 +154,6 @@ import {
                     marginY: 0.5
                   }}
                 >
-                  {activity.icon}
                 </TimelineDot>
                 {index < filteredActivities.length - 1 && <TimelineConnector />}
               </TimelineSeparator>
@@ -204,6 +200,19 @@ import {
               </TimelineContent>
             </TimelineItem>
           ))}
+          {!loading && !filteredActivities.length ? (
+            <TimelineItem>
+              <TimelineOppositeContent />
+              <TimelineSeparator>
+                <TimelineDot color="grey" variant="outlined" />
+              </TimelineSeparator>
+              <TimelineContent>
+                <Typography variant="body2" color="textSecondary">
+                  Сүүлийн үйл ажиллагааны бодит мэдээлэл олдсонгүй.
+                </Typography>
+              </TimelineContent>
+            </TimelineItem>
+          ) : null}
         </Timeline>
         
         <Divider sx={{ my: 1 }} />

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Card, CardContent, Typography, Grid, TextField, Button, Paper } from '@mui/material';
+import { Box, Card, CardContent, Typography, Grid, TextField } from '@mui/material';
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 
 const PrescriptionTab = ({ formData, onChange }) => {
@@ -18,35 +18,49 @@ const PrescriptionTab = ({ formData, onChange }) => {
           <Typography variant="h6" fontWeight="600" sx={{ mb: 3 }}>Эмийн жор</Typography>
           <Grid container spacing={3}>
             <Grid item xs={12}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Typography variant="subtitle1" fontWeight="600">Эмийн жагсаалт</Typography>
-                <Button 
-                  variant="outlined" 
-                  size="small" 
-                  startIcon={<AddCircleOutlineIcon />}
-                  sx={{ 
-                    borderRadius: '8px', 
-                    textTransform: 'none',
-                    boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.05)',
-                    '&:hover': {
-                      boxShadow: '0px 4px 8px rgba(0, 0, 0, 0.1)'
-                    }
-                  }}
-                >
-                  Эм нэмэх
-                </Button>
-              </Box>
-              <Paper sx={{ 
-                p: 2, 
-                bgcolor: 'white', 
-                borderRadius: 1, 
-                border: '1px dashed #ccc',
-                boxShadow: 'inset 0px 2px 4px rgba(0, 0, 0, 0.05)'
-              }}>
-                <Typography color="text.secondary" align="center">
-                  Одоогоор эмийн жор байхгүй байна
-                </Typography>
-              </Paper>
+              <Typography variant="subtitle1" fontWeight="600" sx={{ mb: 2 }}>
+                Эмийн мэдээлэл
+              </Typography>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                label="Эмийн нэр"
+                name="medicationName"
+                value={formData.medicationName || ''}
+                onChange={onChange}
+                fullWidth
+                placeholder="Жишээ: Парацетамол"
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                label="Тун"
+                name="medicationDose"
+                value={formData.medicationDose || ''}
+                onChange={onChange}
+                fullWidth
+                placeholder="Жишээ: 500мг"
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                label="Давтамж"
+                name="medicationFrequency"
+                value={formData.medicationFrequency || ''}
+                onChange={onChange}
+                fullWidth
+                placeholder="Жишээ: Өдөрт 3 удаа"
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField
+                label="Нэмэлт тайлбар"
+                name="medicationDescription"
+                value={formData.medicationDescription || ''}
+                onChange={onChange}
+                fullWidth
+                placeholder="Хоолны дараа ууна"
+              />
             </Grid>
             <Grid item xs={12}>
               <TextField

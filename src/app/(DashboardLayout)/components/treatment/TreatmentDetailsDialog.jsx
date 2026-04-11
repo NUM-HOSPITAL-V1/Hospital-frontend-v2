@@ -53,9 +53,12 @@ const TreatmentDetailsDialog = ({
   onAdministerMedication,
   onAdministerTreatment,
   onCompleteAll,
-  onOpenNoteDialog
+  onOpenNoteDialog,
+  actionLoading = false,
 }) => {
   if (!treatment) return null;
+
+  const isCompleted = treatment.status === 'Дууссан';
 
   return (
     <Dialog
@@ -95,19 +98,22 @@ const TreatmentDetailsDialog = ({
           onClick={onCompleteAll} 
           variant="contained" 
           color="primary"
+          disabled={actionLoading || isCompleted}
         >
-          Бүх зүйлийг дуусгах
+          {isCompleted ? 'Дууссан' : actionLoading ? 'Түр хүлээнэ үү...' : 'Бүх зүйлийг дуусгах'}
         </Button>
         <Button 
           onClick={onOpenNoteDialog} 
           variant="outlined" 
           startIcon={<NoteAddIcon />}
+          disabled={actionLoading}
         >
           Тэмдэглэл нэмэх
         </Button>
         <Button 
           onClick={onClose} 
           color="inherit"
+          disabled={actionLoading}
         >
           Хаах
         </Button>
