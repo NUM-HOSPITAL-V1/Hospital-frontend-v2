@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Box,
   Typography,
@@ -15,236 +15,155 @@ import {
   Card,
   CardContent,
   Grid,
-  Divider,
   IconButton,
   Menu,
   MenuItem,
   ListItemIcon,
   ListItemText,
-  Button
+  Button,
 } from "@mui/material";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import PrintIcon from "@mui/icons-material/Print";
 import ArticleIcon from "@mui/icons-material/Article";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
-import PieChartIcon from "@mui/icons-material/PieChart";
 import BarChartIcon from "@mui/icons-material/BarChart";
-
-// Import Chart Component
 import ExaminationCharts from "./ExaminationCharts";
+import examinationService from "@/app/service/examinationService";
 
-// Mock data for examination reports
-const mockExaminationData = [
-  {
-    id: 1,
-    patientId: "P001",
-    patientName: "Б.Номин",
-    examinationType: "Ерөнхий үзлэг",
-    doctor: "Jean Doe",
-    department: "Дотрын тасаг",
-    date: "2025-04-10",
-    status: "Дууссан",
-    diagnosis: "Хэвийн",
-    cost: 25000,
-  },
-  {
-    id: 2,
-    patientId: "P002",
-    patientName: "Б.Баяр",
-    examinationType: "Нүдний үзлэг",
-    doctor: "Jean Doe",
-    department: "Нүдний тасаг",
-    date: "2025-04-11",
-    status: "Дууссан",
-    diagnosis: "Нүдний даралт ихсэлт",
-    cost: 35000,
-  },
-  {
-    id: 3,
-    patientId: "P001",
-    patientName: "Б.Номин",
-    examinationType: "Шүдний үзлэг",
-    doctor: "Jean Doe",
-    department: "Шүдний тасаг",
-    date: "2025-04-12",
-    status: "Дууссан",
-    diagnosis: "Шүдний өвчлөл",
-    cost: 30000,
-  },
-  {
-    id: 4,
-    patientId: "P002",
-    patientName: "Б.Баяр",
-    examinationType: "Арьсны үзлэг",
-    doctor: "Jean Doe",
-    department: "Арьс өвчний тасаг",
-    date: "2025-04-13",
-    status: "Хүлээгдэж буй",
-    diagnosis: "Тодорхойгүй",
-    cost: 28000,
-  },
-  {
-    id: 5,
-    patientId: "P002",
-    patientName: "Б.Баяр",
-    examinationType: "Мэс заслын үзлэг",
-    doctor: "Jean Doe",
-    department: "Мэс заслын тасаг",
-    date: "2025-04-14",
-    status: "Дууссан",
-    diagnosis: "Умайн хавдар",
-    cost: 45000,
-  },
-  {
-    id: 6,
-    patientId: "P002",
-    patientName: "Б.Баяр",
-    examinationType: "Ерөнхий үзлэг",
-    doctor: "Jean Doe",
-    department: "Дотрын тасаг",
-    date: "2025-04-15",
-    status: "Дууссан",
-    diagnosis: "Цусны даралт ихсэлт",
-    cost: 25000,
-  },
-  {
-    id: 7,
-    patientId: "P002",
-    patientName: "Б.Баяр",
-    examinationType: "Нүдний үзлэг",
-    doctor: "Jean Doe",
-    department: "Нүдний тасаг",
-    date: "2025-04-16",
-    status: "Дууссан",
-    diagnosis: "Хэвийн",
-    cost: 35000,
-  },
-];
+const unwrapList = (response) => {
+  if (Array.isArray(response)) return response;
+  if (!response || typeof response !== "object") return [];
+  if (Array.isArray(response.data)) return response.data;
+  if (Array.isArray(response.examinations)) return response.examinations;
+  return [];
+};
+
+const formatDate = (value) => {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleDateString("mn-MN", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+};
+
+const formatDoctorName = (staff) =>
+  `${staff?.lastname || ""} ${staff?.firstname || ""}`.trim() || "Тодорхойгүй";
+
+const normalizeStatus = (status) => {
+  if (status === "Done") return "Дууссан";
+  if (status === "Todo") return "Хүлээгдэж буй";
+  return "Явагдаж буй";
+};
+
+const getStatusColor = (status) => {
+  if (status === "Дууссан") return "success";
+  if (status === "Хүлээгдэж буй") return "warning";
+  return "info";
+};
 
 const ExaminationReport = ({ filters }) => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
-  const [examinations, setExaminations] = useState([]);
+  const [rawExaminations, setRawExaminations] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [showCharts, setShowCharts] = useState(false);
-  
-  // For the action menu
   const [anchorEl, setAnchorEl] = useState(null);
   const [currentRow, setCurrentRow] = useState(null);
 
-  // Calculate statistics
-  const totalExaminations = examinations.length;
-  const completedExaminations = examinations.filter(item => item.status === "Дууссан").length;
-  const pendingExaminations = examinations.filter(item => item.status === "Хүлээгдэж буй").length;
-  const totalCost = examinations.reduce((sum, item) => sum + item.cost, 0).toLocaleString('mn-MN');
+  useEffect(() => {
+    let mounted = true;
 
-  // Handle menu open
+    const fetchExaminations = async () => {
+      try {
+        setLoading(true);
+        setError("");
+        const response = await examinationService.getAllExaminations();
+        if (!mounted) return;
+        setRawExaminations(unwrapList(response));
+      } catch (fetchError) {
+        if (!mounted) return;
+        setError(fetchError?.response?.data?.error || fetchError?.message || "Үзлэгийн тайлан ачаалж чадсангүй.");
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchExaminations();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const examinations = useMemo(() => {
+    const normalized = rawExaminations.map((item) => {
+      const patientName = `${item.patient?.lastname || ""} ${item.patient?.firstname || ""}`.trim() || "Тодорхойгүй";
+      const doctor = formatDoctorName(item.medicalStaff);
+      const department = item.medicalStaff?.specialization || "Тодорхойгүй";
+      const date = item.exam_date || item.createdAt;
+
+      return {
+        id: item._id || item.id,
+        patientId: item.patient?.register || item.patient?._id || "-",
+        patientName,
+        examinationType: item.exam_type || item.doctors_examination || "Үзлэг",
+        doctor,
+        department,
+        date,
+        dateLabel: formatDate(date),
+        status: normalizeStatus(item.status),
+        diagnosis: item.illness || "-",
+        cost: Number(item.cost) || 0,
+      };
+    });
+
+    return normalized.filter((item) => {
+      const [startDate, endDate] = filters.dateRange || [];
+      const itemDate = item.date ? new Date(item.date) : null;
+
+      if (startDate && itemDate && itemDate < new Date(startDate)) return false;
+      if (endDate && itemDate && itemDate > new Date(endDate)) return false;
+      if (filters.department && !item.department.toLowerCase().includes(filters.department.toLowerCase())) return false;
+      if (filters.doctor && !item.doctor.toLowerCase().includes(filters.doctor.toLowerCase())) return false;
+      if (filters.patientName && !item.patientName.toLowerCase().includes(filters.patientName.toLowerCase())) return false;
+      if (filters.patientId && !String(item.patientId).toLowerCase().includes(filters.patientId.toLowerCase())) return false;
+
+      return true;
+    });
+  }, [rawExaminations, filters]);
+
+  useEffect(() => {
+    setPage(0);
+  }, [filters, rowsPerPage]);
+
+  const totalExaminations = examinations.length;
+  const completedExaminations = examinations.filter((item) => item.status === "Дууссан").length;
+  const pendingExaminations = examinations.filter((item) => item.status === "Хүлээгдэж буй").length;
+  const totalCost = examinations.reduce((sum, item) => sum + item.cost, 0).toLocaleString("mn-MN");
+
   const handleMenuClick = (event, row) => {
     setAnchorEl(event.currentTarget);
     setCurrentRow(row);
   };
 
-  // Handle menu close
   const handleMenuClose = () => {
     setAnchorEl(null);
     setCurrentRow(null);
   };
 
-  // View details handler
-  const handleViewDetails = () => {
-    console.log("View details for:", currentRow);
-    handleMenuClose();
-    // Navigate to details page or open a modal
-  };
-
-  // Export to PDF handler
-  const handleExportPDF = () => {
-    console.log("Export to PDF:", currentRow);
-    handleMenuClose();
-    // Logic to export to PDF
-  };
-
-  // Print handler
-  const handlePrint = () => {
-    console.log("Print:", currentRow);
-    handleMenuClose();
-    // Logic to print
-  };
-
-  // Handle page change
-  const handleChangePage = (event, newPage) => {
-    setPage(newPage);
-  };
-
-  // Handle rows per page change
-  const handleChangeRowsPerPage = (event) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
-  };
-
-  // Toggle charts visibility
-  const toggleCharts = () => {
-    setShowCharts(!showCharts);
-  };
-
-  // Apply filters when they change
-  useEffect(() => {
-    // In a real application, you would fetch data from an API here
-    // For now, we'll just filter the mock data
-    let filteredData = [];
-    
-    // Filter by department
-    if (filters.department) {
-      filteredData = filteredData.filter(item => 
-        item.department === departments.find(d => d.id === filters.department)?.name
-      );
-    }
-    
-    // Filter by doctor
-    if (filters.doctor) {
-      filteredData = filteredData.filter(item => 
-        item.doctor === doctors.find(d => d.id === filters.doctor)?.name
-      );
-    }
-    
-    // Filter by date range
-    if (filters.dateRange[0] && filters.dateRange[1]) {
-      const startDate = new Date(filters.dateRange[0]);
-      const endDate = new Date(filters.dateRange[1]);
-      
-      filteredData = filteredData.filter(item => {
-        const itemDate = new Date(item.date);
-        return itemDate >= startDate && itemDate <= endDate;
-      });
-    }
-    
-    // Filter by patient name
-    if (filters.patientName) {
-      filteredData = filteredData.filter(item =>
-        item.patientName.toLowerCase().includes(filters.patientName.toLowerCase())
-      );
-    }
-    
-    // Filter by patient ID
-    if (filters.patientId) {
-      filteredData = filteredData.filter(item =>
-        item.patientId.toLowerCase().includes(filters.patientId.toLowerCase())
-      );
-    }
-    
-    setExaminations(filteredData);
-  }, [filters]);
-
   return (
     <Box>
-      {/* Statistics Cards */}
       <Grid container spacing={3} sx={{ mb: 3 }}>
         <Grid item xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
-              <Typography color="textSecondary" gutterBottom>
-                Нийт үзлэг
-              </Typography>
+              <Typography color="textSecondary" gutterBottom>Нийт үзлэг</Typography>
               <Typography variant="h4">{totalExaminations}</Typography>
             </CardContent>
           </Card>
@@ -252,72 +171,52 @@ const ExaminationReport = ({ filters }) => {
         <Grid item xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
-              <Typography color="textSecondary" gutterBottom>
-                Дууссан үзлэг
-              </Typography>
-              <Typography variant="h4" color="success.main">
-                {completedExaminations}
-              </Typography>
+              <Typography color="textSecondary" gutterBottom>Дууссан үзлэг</Typography>
+              <Typography variant="h4" color="success.main">{completedExaminations}</Typography>
             </CardContent>
           </Card>
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
-              <Typography color="textSecondary" gutterBottom>
-                Хүлээгдэж буй үзлэг
-              </Typography>
-              <Typography variant="h4" color="warning.main">
-                {pendingExaminations}
-              </Typography>
+              <Typography color="textSecondary" gutterBottom>Хүлээгдэж буй үзлэг</Typography>
+              <Typography variant="h4" color="warning.main">{pendingExaminations}</Typography>
             </CardContent>
           </Card>
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
-              <Typography color="textSecondary" gutterBottom>
-                Нийт дүн (₮)
-              </Typography>
+              <Typography color="textSecondary" gutterBottom>Нийт дүн (₮)</Typography>
               <Typography variant="h4">{totalCost}</Typography>
             </CardContent>
           </Card>
         </Grid>
       </Grid>
 
-      {/* Action Buttons */}
-      <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between' }}>
-        <Button 
-          variant="outlined" 
-          startIcon={showCharts ? <ArticleIcon /> : <BarChartIcon />}
-          onClick={toggleCharts}
-        >
+      <Box sx={{ mb: 2, display: "flex", justifyContent: "space-between" }}>
+        <Button variant="outlined" startIcon={showCharts ? <ArticleIcon /> : <BarChartIcon />} onClick={() => setShowCharts((prev) => !prev)}>
           {showCharts ? "Хүснэгт харах" : "График харах"}
         </Button>
-        
-        <Button 
-          variant="outlined" 
-          startIcon={<FileDownloadIcon />}
-          onClick={() => console.log("Export all data")}
-        >
+        <Button variant="outlined" startIcon={<FileDownloadIcon />} onClick={() => window.print()}>
           Тайлан татах
         </Button>
       </Box>
 
-      {/* Charts Section */}
-      {showCharts && (
-        <Box sx={{ mb: 3 }}>
-          <ExaminationCharts data={examinations} />
-        </Box>
-      )}
+      {error ? (
+        <Typography color="error.main" sx={{ mb: 2 }}>{error}</Typography>
+      ) : null}
 
-      {/* Table */}
-      {!showCharts && (
+      {loading ? (
+        <Typography color="textSecondary">Өгөгдөл ачаалж байна...</Typography>
+      ) : showCharts ? (
+        <ExaminationCharts data={examinations} />
+      ) : (
         <>
           <TableContainer component={Paper} elevation={0} sx={{ mb: 2 }}>
             <Table sx={{ minWidth: 650 }} size="medium">
               <TableHead>
-                <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
+                <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
                   <TableCell>ID</TableCell>
                   <TableCell>Өвчтөн</TableCell>
                   <TableCell>Үзлэгийн төрөл</TableCell>
@@ -330,44 +229,32 @@ const ExaminationReport = ({ filters }) => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {examinations
-                  .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                  .map((row) => (
-                    <TableRow key={row.id} hover>
-                      <TableCell>{row.patientId}</TableCell>
-                      <TableCell>{row.patientName}</TableCell>
-                      <TableCell>{row.examinationType}</TableCell>
-                      <TableCell>{row.doctor}</TableCell>
-                      <TableCell>{row.department}</TableCell>
-                      <TableCell>{row.date}</TableCell>
-                      <TableCell>
-                        <Chip
-                          label={row.status}
-                          color={row.status === "Дууссан" ? "success" : "warning"}
-                          size="small"
-                          sx={{ fontWeight: 'medium' }}
-                        />
-                      </TableCell>
-                      <TableCell>{row.cost.toLocaleString('mn-MN')}</TableCell>
-                      <TableCell align="center">
-                        <IconButton
-                          size="small"
-                          onClick={(event) => handleMenuClick(event, row)}
-                        >
-                          <MoreVertIcon fontSize="small" />
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                {examinations.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={9} align="center" sx={{ py: 3 }}>
-                      <Typography variant="body1" color="textSecondary">
-                        Мэдээлэл олдсонгүй
-                      </Typography>
+                {examinations.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((row) => (
+                  <TableRow key={row.id} hover>
+                    <TableCell>{row.patientId}</TableCell>
+                    <TableCell>{row.patientName}</TableCell>
+                    <TableCell>{row.examinationType}</TableCell>
+                    <TableCell>{row.doctor}</TableCell>
+                    <TableCell>{row.department}</TableCell>
+                    <TableCell>{row.dateLabel}</TableCell>
+                    <TableCell>
+                      <Chip label={row.status} color={getStatusColor(row.status)} size="small" sx={{ fontWeight: "medium" }} />
+                    </TableCell>
+                    <TableCell>{row.cost.toLocaleString("mn-MN")}</TableCell>
+                    <TableCell align="center">
+                      <IconButton size="small" onClick={(event) => handleMenuClick(event, row)}>
+                        <MoreVertIcon fontSize="small" />
+                      </IconButton>
                     </TableCell>
                   </TableRow>
-                )}
+                ))}
+                {!examinations.length ? (
+                  <TableRow>
+                    <TableCell colSpan={9} align="center" sx={{ py: 3 }}>
+                      <Typography variant="body1" color="textSecondary">Мэдээлэл олдсонгүй</Typography>
+                    </TableCell>
+                  </TableRow>
+                ) : null}
               </TableBody>
             </Table>
           </TableContainer>
@@ -378,55 +265,33 @@ const ExaminationReport = ({ filters }) => {
             count={examinations.length}
             rowsPerPage={rowsPerPage}
             page={page}
-            onPageChange={handleChangePage}
-            onRowsPerPageChange={handleChangeRowsPerPage}
+            onPageChange={(_, newPage) => setPage(newPage)}
+            onRowsPerPageChange={(event) => {
+              setRowsPerPage(parseInt(event.target.value, 10));
+              setPage(0);
+            }}
             labelRowsPerPage="Хуудсанд:"
             labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${count}`}
           />
         </>
       )}
 
-      {/* Action Menu */}
-      <Menu
-        anchorEl={anchorEl}
-        open={Boolean(anchorEl)}
-        onClose={handleMenuClose}
-      >
-        <MenuItem onClick={handleViewDetails}>
-          <ListItemIcon>
-            <VisibilityIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText primary="Дэлгэрэнгүй" />
+      <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}>
+        <MenuItem onClick={handleMenuClose}>
+          <ListItemIcon><VisibilityIcon fontSize="small" /></ListItemIcon>
+          <ListItemText primary={currentRow?.diagnosis || "Дэлгэрэнгүй мэдээлэлгүй"} />
         </MenuItem>
-        <MenuItem onClick={handleExportPDF}>
-          <ListItemIcon>
-            <FileDownloadIcon fontSize="small" />
-          </ListItemIcon>
+        <MenuItem onClick={() => { handleMenuClose(); window.print(); }}>
+          <ListItemIcon><FileDownloadIcon fontSize="small" /></ListItemIcon>
           <ListItemText primary="PDF татах" />
         </MenuItem>
-        <MenuItem onClick={handlePrint}>
-          <ListItemIcon>
-            <PrintIcon fontSize="small" />
-          </ListItemIcon>
+        <MenuItem onClick={() => { handleMenuClose(); window.print(); }}>
+          <ListItemIcon><PrintIcon fontSize="small" /></ListItemIcon>
           <ListItemText primary="Хэвлэх" />
         </MenuItem>
       </Menu>
     </Box>
   );
 };
-
-// Mock data for departments and doctors to use in filtering
-const departments = [
-  { id: 1, name: "Нүдний тасаг" },
-  { id: 2, name: "Дотрын тасаг" },
-  { id: 3, name: "Мэс заслын тасаг" },
-  { id: 4, name: "Шүдний тасаг" },
-  { id: 5, name: "Арьс өвчний тасаг" },
-];
-
-const doctors = [
-  { id: 1, name: "Jean Doe" },
-
-];
 
 export default ExaminationReport;

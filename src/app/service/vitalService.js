@@ -45,7 +45,7 @@ const vitalService = {
   },
 
   getMyRecordedVitalSigns: async (limit = 0) => {
-    const response = await apiClient.get('/vital/vitalsigns/my/recorded', {
+    const response = await apiClient.get('/vital/vitalsigns/my/recorded-by-staff', {
       params: limit ? { limit } : {},
     });
     return response.data;

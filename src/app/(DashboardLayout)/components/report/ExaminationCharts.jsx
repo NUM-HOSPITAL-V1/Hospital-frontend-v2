@@ -76,8 +76,18 @@ const ExaminationCharts = ({ data }) => {
     
     // Count examinations by date
     data.forEach(item => {
-      if (dailyMap[item.date] !== undefined) {
-        dailyMap[item.date] += 1;
+      if (!item.date) {
+        return;
+      }
+
+      const normalizedDate = new Date(item.date);
+      if (Number.isNaN(normalizedDate.getTime())) {
+        return;
+      }
+
+      const dateKey = normalizedDate.toISOString().split('T')[0];
+      if (dailyMap[dateKey] !== undefined) {
+        dailyMap[dateKey] += 1;
       }
     });
     

@@ -4,6 +4,38 @@ import authService from "../../../utils/authService";
 
 const AuthContext = createContext(null);
 
+const normalizePosition = (position) => {
+  if (!position || typeof position !== "string") {
+    return position;
+  }
+
+  const trimmed = position.trim().toLowerCase();
+
+  if (trimmed === "сувилагч" || trimmed === "nurse") {
+    return "Nurse";
+  }
+
+  if (trimmed === "эмч" || trimmed === "doctor") {
+    return "Doctor";
+  }
+
+  return position.trim();
+};
+
+const normalizeUserData = (userData) => {
+  if (!userData?.user) {
+    return userData;
+  }
+
+  return {
+    ...userData,
+    user: {
+      ...userData.user,
+      position: normalizePosition(userData.user.position),
+    },
+  };
+};
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -16,7 +48,9 @@ export const AuthProvider = ({ children }) => {
         const storedUser = localStorage.getItem("USER");
         if (storedUser) {
           try {
-            setUser(JSON.parse(storedUser));
+            const parsedUser = normalizeUserData(JSON.parse(storedUser));
+            localStorage.setItem("USER", JSON.stringify(parsedUser));
+            setUser(parsedUser);
           } catch (error) {
             console.error("User parse алдаа:", error);
             localStorage.removeItem("USER");
@@ -38,10 +72,10 @@ export const AuthProvider = ({ children }) => {
       const data = await authService.login(credentials);
       
       // Store user data in localStorage
-      const userData = {
+      const userData = normalizeUserData({
         token: data.accessToken,
         user: data.user,
-      };
+      });
       
       localStorage.setItem("USER", JSON.stringify(userData));
       setUser(userData);

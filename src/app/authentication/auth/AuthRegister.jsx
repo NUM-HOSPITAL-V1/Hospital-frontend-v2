@@ -6,6 +6,7 @@ import {
   Button,
   TextField,
   Grid,
+  MenuItem,
   InputAdornment,
   Stepper,
   Step,
@@ -30,6 +31,17 @@ import PhoneIcon from "@mui/icons-material/Phone";
 import LockIcon from "@mui/icons-material/Lock";
 import EmailIcon from "@mui/icons-material/Email";
 import HomeIcon from "@mui/icons-material/Home";
+
+const SCHOOL_OPTIONS = [
+  "ШУТ UB парк ",
+  "УТОУХНУС ",
+  "ИТС",
+  "МТЭС",
+  "ШУС",
+  "ХЗС",
+  "БС",
+  "АТС",
+];
 
 const AuthRegister = ({ title, subtitle, subtext }) => {
   const { register } = useAuth();  // Use our auth context
@@ -563,6 +575,7 @@ const AuthRegister = ({ title, subtitle, subtext }) => {
                 label="Сургууль"
                 name="school"
                 required
+                select
                 value={school}
                 onChange={(e) => setSchool(e.target.value)}
                 InputLabelProps={{ sx: requiredAsteriskStyle }}
@@ -573,7 +586,13 @@ const AuthRegister = ({ title, subtitle, subtext }) => {
                     </InputAdornment>
                   ),
                 }}
-              />
+              >
+                {SCHOOL_OPTIONS.map((option) => (
+                  <MenuItem key={option} value={option}>
+                    {option.trim()}
+                  </MenuItem>
+                ))}
+              </TextField>
             </Grid>
             {/* Цахим шуудан */}
             <Grid item xs={12} sm={6}>
