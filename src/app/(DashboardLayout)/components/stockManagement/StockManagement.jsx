@@ -16,8 +16,6 @@ import StockTable from './comp/StockTable';
 // Import dialogs
 
 
-// Import constants and helpers
-import { mockStockItems } from './constants';
 import StockHeader from './comp/StockHeader';
 import StatusSummary from './comp/StatusSummary';
 import SearchAndFilter from './comp/SearchAndFilter';
@@ -31,8 +29,8 @@ import medicineService from '../../../service/medicineService';
 
 const PharmacyStockManagement = ({ onOpenTransaction }) => {
   const router = useRouter();
-  const [stockItems, setStockItems] = useState(mockStockItems);
-  const [filteredItems, setFilteredItems] = useState(mockStockItems);
+  const [stockItems, setStockItems] = useState([]);
+  const [filteredItems, setFilteredItems] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');

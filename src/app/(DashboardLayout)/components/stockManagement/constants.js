@@ -1,5 +1,3 @@
-export const mockStockItems = [];
-  
   // Category and form options
   export const categoryOptions = ['Эм', 'Хэрэгсэл', 'Уусмал', 'Вакцин', 'Бусад'];
   
