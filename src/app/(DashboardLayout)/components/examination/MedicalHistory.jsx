@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   Box, 
   Card, 
@@ -17,19 +17,128 @@ import {
   IconButton,
   Collapse,
   Grid,
-  Divider
+  Divider,
+  Alert,
+  CircularProgress
 } from '@mui/material';
 import HistoryIcon from '@mui/icons-material/History';
 import MonitorHeartOutlinedIcon from '@mui/icons-material/MonitorHeartOutlined';
-import LocalHospitalOutlinedIcon from '@mui/icons-material/LocalHospitalOutlined';
 import MedicationOutlinedIcon from '@mui/icons-material/MedicationOutlined';
 import AssignmentOutlinedIcon from '@mui/icons-material/AssignmentOutlined';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import CalendarTodayOutlinedIcon from '@mui/icons-material/CalendarTodayOutlined';
+import examinationService from '../../../service/examinationService';
+import vitalService from '../../../service/vitalService';
+import prescriptionService from '../../../service/prescriptionService';
 
-// TODO: Medical history өгөгдлийг API-аар авч харуулах (одоогоор mock data устгасан)
-const generateMockHistoryData = () => [];
+const DEFAULT_VITALS = {
+  temperature: '-',
+  bloodPressure: '-',
+  heartRate: '-',
+  respiratoryRate: '-',
+  weight: '-',
+  height: '-',
+};
+
+const formatDate = (value) => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toISOString().split('T')[0];
+};
+
+const mapExamType = (exam) => {
+  if (exam.exam_type) return exam.exam_type;
+  const typeMap = {
+    Initial: 'Анхан',
+    'Follow-up': 'Давтан',
+    Preventive: 'Сэргийлэх',
+    'Active Monitoring': 'Хяналт',
+    'Home Visit': 'Гэрийн үзлэг',
+    'House Call': 'Дуудлага',
+  };
+  return typeMap[exam.doctors_examination] || exam.doctors_examination || 'Үзлэг';
+};
+
+const mapStatus = (status) => {
+  const statusMap = {
+    Ongoing: 'Хийгдэж буй',
+    Done: 'Дууссан',
+    Todo: 'Хүлээгдэж буй',
+  };
+  return statusMap[status] || status || 'Хийгдэж буй';
+};
+
+const getPatientId = (patient) => patient?._id || patient?.id || patient;
+
+const getDoctorName = (exam) => {
+  const doctor = exam?.doctor || exam?.medicalStaff || exam?.createdBy;
+  if (!doctor) return 'Тодорхойгүй';
+  const name = [doctor.lastname, doctor.firstname].filter(Boolean).join(' ').trim();
+  return name || doctor.name || doctor.email || 'Тодорхойгүй';
+};
+
+const getClosestVitals = (exam, vitals) => {
+  if (!Array.isArray(vitals) || vitals.length === 0) {
+    return DEFAULT_VITALS;
+  }
+
+  const examTime = new Date(exam.exam_date || exam.createdAt).getTime();
+  const sortedVitals = vitals
+    .filter((item) => item)
+    .slice()
+    .sort((a, b) => {
+      const aTime = new Date(a.date || a.createdAt || 0).getTime();
+      const bTime = new Date(b.date || b.createdAt || 0).getTime();
+      return Math.abs(aTime - examTime) - Math.abs(bTime - examTime);
+    });
+
+  const vital = sortedVitals[0];
+  if (!vital) {
+    return DEFAULT_VITALS;
+  }
+
+  const systolic = vital.right_systolic ?? vital.left_systolic;
+  const diastolic = vital.right_diastolic ?? vital.left_diastolic;
+
+  return {
+    temperature: vital.temperature ?? '-',
+    bloodPressure: systolic && diastolic ? `${systolic}/${diastolic}` : '-',
+    heartRate: vital.right_heart_rate ?? vital.left_heart_rate ?? '-',
+    respiratoryRate: vital.respiration_rate ?? '-',
+    weight: vital.weight ?? '-',
+    height: vital.height ?? '-',
+  };
+};
+
+const getPrescriptionNotes = (exam, guides = []) => {
+  const guideText = guides
+    .map((guide) => guide?.description || guide?.name || '')
+    .filter(Boolean)
+    .join('\n\n')
+    .trim();
+
+  return guideText || exam.reason || 'Тэмдэглэл байхгүй';
+};
+
+const transformHistoryItem = (exam, vitals, medications = [], guides = []) => ({
+  id: exam._id,
+  date: formatDate(exam.exam_date || exam.createdAt),
+  doctor: getDoctorName(exam),
+  diagnosis: exam.illness || exam.reason || 'Онош бүртгэгдээгүй',
+  diagnosisCode: exam.diagnosis?.code || '',
+  type: mapExamType(exam),
+  status: mapStatus(exam.status),
+  vitals: getClosestVitals(exam, vitals),
+  prescriptions: medications.map((item) => ({
+    name: item.name || 'Эмийн нэргүй',
+    dosage: item.dose || '-',
+    frequency: item.frequency || '-',
+    duration: item.description || '-',
+  })),
+  notes: getPrescriptionNotes(exam, guides),
+});
 
 // Row component for expandable table
 const HistoryRow = ({ row }) => {
@@ -65,9 +174,11 @@ const HistoryRow = ({ row }) => {
         <TableCell sx={{ py: 1.5 }}>
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             {row.diagnosis}
-            <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
-              ({row.diagnosisCode})
-            </Typography>
+            {row.diagnosisCode ? (
+              <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+                ({row.diagnosisCode})
+              </Typography>
+            ) : null}
           </Box>
         </TableCell>
         <TableCell sx={{ py: 1.5 }}>
@@ -105,27 +216,39 @@ const HistoryRow = ({ row }) => {
                       <Grid container spacing={1}>
                         <Grid item xs={6}>
                           <Typography variant="body2" color="text.secondary">Биеийн халуун:</Typography>
-                          <Typography variant="body2" fontWeight="medium">{row.vitals.temperature}°C</Typography>
+                          <Typography variant="body2" fontWeight="medium">
+                            {row.vitals.temperature === '-' ? '-' : `${row.vitals.temperature}°C`}
+                          </Typography>
                         </Grid>
                         <Grid item xs={6}>
                           <Typography variant="body2" color="text.secondary">Цусны даралт:</Typography>
-                          <Typography variant="body2" fontWeight="medium">{row.vitals.bloodPressure} mmHg</Typography>
+                          <Typography variant="body2" fontWeight="medium">
+                            {row.vitals.bloodPressure === '-' ? '-' : `${row.vitals.bloodPressure} mmHg`}
+                          </Typography>
                         </Grid>
                         <Grid item xs={6}>
                           <Typography variant="body2" color="text.secondary">Зүрхний цохилт:</Typography>
-                          <Typography variant="body2" fontWeight="medium">{row.vitals.heartRate} удаа/мин</Typography>
+                          <Typography variant="body2" fontWeight="medium">
+                            {row.vitals.heartRate === '-' ? '-' : `${row.vitals.heartRate} удаа/мин`}
+                          </Typography>
                         </Grid>
                         <Grid item xs={6}>
                           <Typography variant="body2" color="text.secondary">Амьсгал:</Typography>
-                          <Typography variant="body2" fontWeight="medium">{row.vitals.respiratoryRate} удаа/мин</Typography>
+                          <Typography variant="body2" fontWeight="medium">
+                            {row.vitals.respiratoryRate === '-' ? '-' : `${row.vitals.respiratoryRate} удаа/мин`}
+                          </Typography>
                         </Grid>
                         <Grid item xs={6}>
                           <Typography variant="body2" color="text.secondary">Жин:</Typography>
-                          <Typography variant="body2" fontWeight="medium">{row.vitals.weight} кг</Typography>
+                          <Typography variant="body2" fontWeight="medium">
+                            {row.vitals.weight === '-' ? '-' : `${row.vitals.weight} кг`}
+                          </Typography>
                         </Grid>
                         <Grid item xs={6}>
                           <Typography variant="body2" color="text.secondary">Өндөр:</Typography>
-                          <Typography variant="body2" fontWeight="medium">{row.vitals.height} см</Typography>
+                          <Typography variant="body2" fontWeight="medium">
+                            {row.vitals.height === '-' ? '-' : `${row.vitals.height} см`}
+                          </Typography>
                         </Grid>
                       </Grid>
                     </Paper>
@@ -197,7 +320,83 @@ const HistoryRow = ({ row }) => {
 
 const PatientMedicalHistory = ({ patient }) => {
   const [tabValue, setTabValue] = useState(0);
-  const medicalHistory = generateMockHistoryData(patient?.id);
+  const [medicalHistory, setMedicalHistory] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const patientId = getPatientId(patient);
+
+    if (!patientId) {
+      setMedicalHistory([]);
+      setError('');
+      return;
+    }
+
+    const loadMedicalHistory = async () => {
+      try {
+        setLoading(true);
+        setError('');
+
+        let examinationsResponse;
+        try {
+          examinationsResponse = await examinationService.getAllExaminations();
+        } catch (allError) {
+          examinationsResponse = await examinationService.getMyExaminations();
+        }
+
+        const allExams = Array.isArray(examinationsResponse?.data) ? examinationsResponse.data : [];
+        const patientExams = allExams.filter((exam) => {
+          const examPatientId = getPatientId(exam?.patient);
+          return String(examPatientId || '') === String(patientId);
+        });
+
+        const [vitalResponse, prescriptionsResponse] = await Promise.all([
+          vitalService.getPatientVitalSigns(patientId).catch(() => ({ data: [] })),
+          prescriptionService.getPatientPrescriptions(patientId).catch(() => ({ data: [] })),
+        ]);
+
+        const vitals = Array.isArray(vitalResponse?.data) ? vitalResponse.data : [];
+        const prescriptions = Array.isArray(prescriptionsResponse?.data) ? prescriptionsResponse.data : [];
+
+        const medicalHistoryRows = await Promise.all(
+          patientExams
+            .slice()
+            .sort((a, b) => new Date(b.exam_date || b.createdAt || 0) - new Date(a.exam_date || a.createdAt || 0))
+            .map(async (exam) => {
+              const matchingPrescription = prescriptions.find((item) => {
+                const itemExamId = item?.examination_id?._id || item?.examination_id;
+                return String(itemExamId || '') === String(exam._id || '');
+              });
+
+              if (!matchingPrescription?._id) {
+                return transformHistoryItem(exam, vitals);
+              }
+
+              const [medicationsResponse, guidesResponse] = await Promise.all([
+                prescriptionService.getPrescriptionMedications(matchingPrescription._id).catch(() => ({ data: [] })),
+                prescriptionService.getPrescriptionGuides(matchingPrescription._id).catch(() => ({ data: [] })),
+              ]);
+
+              const medications = Array.isArray(medicationsResponse?.data) ? medicationsResponse.data : [];
+              const guides = Array.isArray(guidesResponse?.data) ? guidesResponse.data : [];
+
+              return transformHistoryItem(exam, vitals, medications, guides);
+            })
+        );
+
+        setMedicalHistory(medicalHistoryRows);
+      } catch (fetchError) {
+        console.error('Error fetching medical history:', fetchError);
+        setMedicalHistory([]);
+        setError('Үзлэгийн түүх татахад алдаа гарлаа');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadMedicalHistory();
+  }, [patient]);
   
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
@@ -244,8 +443,23 @@ const PatientMedicalHistory = ({ patient }) => {
             iconPosition="start"
           />
         </Tabs>
-        
-        {medicalHistory.length > 0 ? (
+
+        {error ? <Alert severity="warning" sx={{ mb: 2 }}>{error}</Alert> : null}
+
+        {loading ? (
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              gap: 1.5,
+              p: 5,
+            }}
+          >
+            <CircularProgress size={24} />
+            <Typography color="text.secondary">Үзлэгийн түүх ачаалж байна...</Typography>
+          </Box>
+        ) : medicalHistory.length > 0 ? (
           <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 1, boxShadow: 'none' }}>
             <Table size="small">
               <TableHead>
