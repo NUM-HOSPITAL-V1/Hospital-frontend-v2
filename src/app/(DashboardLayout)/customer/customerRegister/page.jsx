@@ -187,6 +187,20 @@ export default function CustomerRegister() {
     if (Number.isNaN(parsedDate.getTime())) return undefined;
     return parsedDate.toISOString().split('T')[0];
   };
+
+  const mapSchoolType = (value) => {
+    const schoolTypeMap = {
+    "ШУТ UB парк ": "SHUT",
+    "УТОУХНУС ": "UTOUHNUS",
+    "ИТС": "ITS",
+    "МТЭС": "MTEC",
+    "ШУС": "SHUS",
+    "ХЗС": "HZS",
+    "БС": "BS",
+    "АТС": "ATS",
+    };
+    return schoolTypeMap[value] || '';
+  };
   
   const confirmSave = async () => {
     if (loading) {

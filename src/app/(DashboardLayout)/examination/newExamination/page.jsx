@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { Box } from '@mui/material';
 import { Alert } from 'antd';
 import { useRouter } from 'next/navigation';
-import { actionOptions, diagnosisOptions } from '../mockdata';
+import { actionOptions } from '../mockdata';
 import Header from '../../components/examination/Header';
 import PatientInfo from '../../components/examination/PatientInfo';
 import PatientAllergies from '../../components/examination/Allergy';
@@ -22,6 +22,8 @@ import examinationService from '../../../service/examinationService';
 import patientService from '../../../service/patientService';
 import vitalService from '../../../service/vitalService';
 import prescriptionService from '../../../service/prescriptionService';
+import treatmentService from '../../../service/treatmentService';
+import diagnosisLookupService from '../../../service/diagnosisLookupService';
 
 export default function CreateExaminationPage() {
   const router = useRouter();
@@ -31,6 +33,11 @@ export default function CreateExaminationPage() {
   const [patientSearch, setPatientSearch] = useState('');
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [patients, setPatients] = useState([]);
+  const [diagnosisQuery, setDiagnosisQuery] = useState('');
+  const [diagnosisOptions, setDiagnosisOptions] = useState([]);
+  const [selectedDiagnosis, setSelectedDiagnosis] = useState(null);
+  const [diagnosisLoading, setDiagnosisLoading] = useState(false);
+  const [diagnosisError, setDiagnosisError] = useState('');
   
   // Notification state
   const [notification, setNotification] = useState(null);
@@ -43,6 +50,10 @@ export default function CreateExaminationPage() {
     type: 'Анхан',
     diagnosis: '',
     diagnosisCode: '',
+    diagnosisId: '',
+    diagnosisSource: '',
+    diagnosisDetail: '',
+    diagnosisNote: '',
     action: '',
     actionCode: '',
     notes: '',
@@ -54,6 +65,9 @@ export default function CreateExaminationPage() {
     weight: '',
     height: '',
     treatmentInstructions: '',
+    treatmentTotalQuantity: '',
+    treatmentFrequency: '',
+    treatmentDays: '',
     guideName: '',
     regimen: '',
     medicationName: '',
@@ -110,6 +124,56 @@ export default function CreateExaminationPage() {
     fetchPatients();
   }, []);
 
+  useEffect(() => {
+    const trimmedQuery = diagnosisQuery.trim();
+
+    if (trimmedQuery.length < 2) {
+      setDiagnosisOptions(selectedDiagnosis ? [selectedDiagnosis] : []);
+      setDiagnosisLoading(false);
+      setDiagnosisError('');
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(async () => {
+      setDiagnosisLoading(true);
+      setDiagnosisError('');
+
+      try {
+        const response = await diagnosisLookupService.searchDiagnoses({
+          query: trimmedQuery,
+          limit: 10,
+          signal: controller.signal,
+        });
+
+        const results = Array.isArray(response?.data) ? response.data : [];
+        const nextOptions = selectedDiagnosis
+          ? [
+              selectedDiagnosis,
+              ...results.filter((item) => item.code !== selectedDiagnosis.code),
+            ]
+          : results;
+
+        setDiagnosisOptions(nextOptions);
+      } catch (error) {
+        if (error?.name === 'CanceledError' || error?.code === 'ERR_CANCELED') {
+          return;
+        }
+
+        console.error('Error searching diagnoses:', error);
+        setDiagnosisOptions(selectedDiagnosis ? [selectedDiagnosis] : []);
+        setDiagnosisError('ICD-10 онош хайхад алдаа гарлаа. Дараа дахин оролдоно уу.');
+      } finally {
+        setDiagnosisLoading(false);
+      }
+    }, 350);
+
+    return () => {
+      controller.abort();
+      clearTimeout(timeoutId);
+    };
+  }, [diagnosisQuery, selectedDiagnosis]);
+
   const examinationTypeMap = {
     'Анхан': 'Initial',
     'Давтан': 'Follow-up',
@@ -140,16 +204,54 @@ export default function CreateExaminationPage() {
 
   const handleDiagnosisChange = (event, newValue) => {
     if (newValue) {
+      setSelectedDiagnosis(newValue);
+      setDiagnosisQuery([newValue.code, newValue.name].filter(Boolean).join(' - '));
+      setDiagnosisOptions((prev) => {
+        const next = Array.isArray(prev) ? prev.filter((item) => item.code !== newValue.code) : [];
+        return [newValue, ...next];
+      });
+      setDiagnosisError('');
       setFormData(prev => ({
         ...prev,
-        diagnosis: newValue.label,
-        diagnosisCode: newValue.code
+        diagnosis: newValue.name,
+        diagnosisCode: newValue.code,
+        diagnosisId: newValue.id || '',
+        diagnosisSource: newValue.source || 'icd10',
+        diagnosisDetail: newValue.detail || '',
       }));
     } else {
+      setSelectedDiagnosis(null);
+      setDiagnosisQuery('');
+      setDiagnosisOptions([]);
       setFormData(prev => ({
         ...prev,
         diagnosis: '',
-        diagnosisCode: ''
+        diagnosisCode: '',
+        diagnosisId: '',
+        diagnosisSource: '',
+        diagnosisDetail: '',
+      }));
+    }
+  };
+
+  const handleDiagnosisInputChange = (event, value, reason) => {
+    if (reason === 'reset') {
+      return;
+    }
+
+    setDiagnosisQuery(value);
+
+    if (reason === 'clear') {
+      setSelectedDiagnosis(null);
+      setDiagnosisOptions([]);
+      setDiagnosisError('');
+      setFormData(prev => ({
+        ...prev,
+        diagnosis: '',
+        diagnosisCode: '',
+        diagnosisId: '',
+        diagnosisSource: '',
+        diagnosisDetail: '',
       }));
     }
   };
@@ -262,17 +364,26 @@ const handleSubmit = async (e) => {
       exam_date: formData.date,
       doctors_examination: examinationTypeMap[formData.type] || 'Initial',
       exam_type: formData.type,
-
-      // 🔥 FIX: fallback устгасан
-      illness: formData.diagnosis,
+      illness: formData.diagnosisCode
+        ? [formData.diagnosisCode, formData.diagnosis].filter(Boolean).join(' - ')
+        : formData.diagnosis,
 
       surgery: formData.action || '',
-      reason: formData.notes || '',
+      reason: [formData.diagnosisNote, formData.notes].filter((value) => value && String(value).trim() !== '').join('\n\n'),
       callback: false,
       sendToHigherLevel: false,
       isVioleted: false,
       sickDays: 0,
       status: examinationStatusMap[formData.status] || 'Ongoing',
+      diagnosis: selectedDiagnosis
+        ? {
+            id: selectedDiagnosis.id || '',
+            code: selectedDiagnosis.code,
+            name: selectedDiagnosis.name,
+            detail: selectedDiagnosis.detail || '',
+            source: selectedDiagnosis.source || 'icd10',
+          }
+        : undefined,
     };
 
     const examinationResponse = await examinationService.createExamination(payload);
@@ -320,12 +431,45 @@ const handleSubmit = async (e) => {
       .trim();
 
     const hasGuide = guideDescription.length > 0;
+    const hasTreatmentTabInput = [
+      formData.treatmentInstructions,
+      formData.treatmentTotalQuantity,
+      formData.treatmentFrequency,
+      formData.treatmentDays,
+      formData.guideName,
+      formData.regimen,
+    ].some((value) => value && String(value).trim() !== '');
+    const shouldCreateTreatment =
+      hasTreatmentTabInput ||
+      formData.actionCode === 'TREAT' ||
+      String(formData.action || '').toLowerCase().includes('эмчилгээ');
 
     const hasMedication = [
       formData.medicationName,
       formData.medicationDose,
       formData.medicationFrequency,
     ].every((value) => value && String(value).trim() !== '');
+
+    if (shouldCreateTreatment) {
+      try {
+        const totalQuantity = Math.max(1, Number(formData.treatmentTotalQuantity || 1));
+        const treatmentDays = formData.treatmentDays === '' ? undefined : Number(formData.treatmentDays);
+        await treatmentService.createTreatment({
+          patient: selectedPatient.id,
+          date: formData.date,
+          examination_id: examinationId,
+          treatmentType: 'Uvch',
+          diagnosisType: 'out',
+          totalQuantity,
+          frequency: formData.treatmentFrequency?.trim() || undefined,
+          treatmentDays: Number.isFinite(treatmentDays) ? treatmentDays : undefined,
+          sessionsCompleted: formData.status === 'Дууссан' ? totalQuantity : 0,
+        });
+      } catch (error) {
+        console.error('Error creating treatment:', error);
+        warnings.push('Эмчилгээ хадгалагдсангүй');
+      }
+    }
 
     if (hasGuide || hasMedication) {
       try {
@@ -446,8 +590,13 @@ const handleSubmit = async (e) => {
               onChange={handleChange}
               onDateChange={handleDateChange}
               onDiagnosisChange={handleDiagnosisChange}
+              onDiagnosisInputChange={handleDiagnosisInputChange}
+              diagnosisQuery={diagnosisQuery}
+              diagnosisLoading={diagnosisLoading}
+              diagnosisError={diagnosisError}
               onActionChange={handleActionChange}
               diagnosisOptions={diagnosisOptions}
+              selectedDiagnosis={selectedDiagnosis}
               actionOptions={actionOptions}
             />
           )}

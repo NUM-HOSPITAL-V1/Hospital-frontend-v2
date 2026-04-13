@@ -27,6 +27,11 @@ apiClient.interceptors.request.use(
 );
 
 const treatmentService = {
+  createTreatment: async (payload) => {
+    const response = await apiClient.post('/treatment', payload);
+    return response.data;
+  },
+
   getAllTreatments: async () => {
     const response = await apiClient.get('/treatment/list/all');
     return response.data;

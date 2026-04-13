@@ -35,6 +35,61 @@ const TreatmentTab = ({ formData, onChange }) => {
                 }}
               />
             </Grid>
+            <Grid item xs={12} md={4}>
+              <TextField
+                label="Нийт эмчилгээний тоо"
+                name="treatmentTotalQuantity"
+                type="number"
+                value={formData.treatmentTotalQuantity || ''}
+                onChange={onChange}
+                fullWidth
+                inputProps={{ min: 1 }}
+                placeholder="Жишээ: 5"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&:hover fieldset': {
+                      borderColor: 'primary.light',
+                    },
+                  },
+                }}
+              />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <TextField
+                label="Давтамж"
+                name="treatmentFrequency"
+                value={formData.treatmentFrequency || ''}
+                onChange={onChange}
+                fullWidth
+                placeholder="Жишээ: Өдөрт 2"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&:hover fieldset': {
+                      borderColor: 'primary.light',
+                    },
+                  },
+                }}
+              />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <TextField
+                label="Өдөр"
+                name="treatmentDays"
+                type="number"
+                value={formData.treatmentDays || ''}
+                onChange={onChange}
+                fullWidth
+                inputProps={{ min: 1 }}
+                placeholder="Жишээ: 3"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&:hover fieldset': {
+                      borderColor: 'primary.light',
+                    },
+                  },
+                }}
+              />
+            </Grid>
             <Grid item xs={12}>
               <Typography variant="subtitle1" fontWeight="600" sx={{ mb: 2 }}>
                 Дэглэм

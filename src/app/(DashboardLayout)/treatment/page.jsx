@@ -13,6 +13,7 @@ import TreatmentDetailsDialog from '../components/treatment/TreatmentDetailsDial
 import AddNoteDialog from '../components/treatment/AddNoteDialog';
 import PageHeader from '../components/treatment/PageHeader';
 import treatmentService from '../../service/treatmentService';
+import prescriptionService from '../../service/prescriptionService';
 
 const TreatmentListPage = () => {
   const router = useRouter();
@@ -62,34 +63,63 @@ const TreatmentListPage = () => {
     return 'Хүлээгдэж буй';
   };
 
-  const transformTreatment = (treatment) => ({
-    id: treatment._id,
-    patientName: `${treatment.patient?.lastname || ''} ${treatment.patient?.firstname || ''}`.trim(),
-    patientId: treatment.patient?.register || treatment.patient?._id || '',
-    diagnosis: treatment.diagnosisType === 'in' ? 'Хэвтэн эмчлүүлэх' : 'Амбулатори',
-    doctorName: `${treatment.medicalStaff?.lastname || ''} ${treatment.medicalStaff?.firstname || ''}`.trim(),
-    scheduledDate: formatDate(treatment.date),
-    scheduledTime: formatTime(treatment.date),
-    status: mapStatus(treatment),
-    raw: treatment,
-    prescribedMedications: [],
-    prescribedTreatments: [
-      {
-        id: treatment._id,
-        name: treatment.treatmentType,
-        details: treatment.examination_id?.exam_type || treatment.examination_id?.doctors_examination || 'Үзлэгтэй холбоотой',
-        duration: `${treatment.totalQuantity || 0} удаа`,
-        frequency: 'Өдөрт 1',
-        days: `${treatment.totalQuantity || 0} өдөр`,
-        status: mapStatus(treatment),
-        totalSessions: treatment.totalQuantity || 0,
-        currentSessions: treatment.sessionsCompleted || 0,
-      },
-    ],
-    instructions: treatment.diagnosisType === 'in'
-      ? 'Хэвтэн эмчилгээний горим баримтална.'
-      : 'Амбулаторийн эмчилгээний зааврын дагуу үргэлжлүүлнэ.',
-  });
+  const getTreatmentDisplayName = (treatment, guideName) => {
+    if (guideName && String(guideName).trim()) {
+      return String(guideName).trim();
+    }
+
+    const procedureName = treatment.examination_id?.surgery;
+    if (procedureName && String(procedureName).trim()) {
+      return String(procedureName).trim();
+    }
+
+    return 'Эмчилгээ-1';
+  };
+
+  const transformTreatment = (treatment, details = {}) => {
+    const medications = Array.isArray(details.medications) ? details.medications : [];
+    const guides = Array.isArray(details.guides) ? details.guides : [];
+    const primaryGuide = guides[0];
+    const treatmentName = getTreatmentDisplayName(treatment, primaryGuide?.name);
+    const instructionText = guides
+      .map((guide) => [guide.name, guide.description].filter(Boolean).join('\n'))
+      .filter(Boolean)
+      .join('\n\n');
+
+    return {
+      id: treatment._id,
+      patientName: `${treatment.patient?.lastname || ''} ${treatment.patient?.firstname || ''}`.trim(),
+      patientId: treatment.patient?.register || treatment.patient?._id || '',
+      diagnosis: treatment.examination_id?.illness || (treatment.diagnosisType === 'in' ? 'Хэвтэн эмчлүүлэх' : 'Амбулатори'),
+      doctorName: `${treatment.medicalStaff?.lastname || ''} ${treatment.medicalStaff?.firstname || ''}`.trim(),
+      scheduledDate: formatDate(treatment.date),
+      scheduledTime: formatTime(treatment.date),
+      status: mapStatus(treatment),
+      raw: treatment,
+      prescribedMedications: medications.map((medication) => ({
+        id: medication._id,
+        name: medication.name || 'Эм',
+        dosage: medication.dose || '-',
+        frequency: medication.frequency || '-',
+        duration: medication.description || '-',
+        status: 'Хүлээгдэж буй',
+      })),
+      prescribedTreatments: [
+        {
+          id: treatment._id,
+          name: treatmentName,
+          details: treatment.examination_id?.reason || treatment.examination_id?.exam_type || 'Үзлэгтэй холбоотой',
+          duration: `${treatment.totalQuantity || 0} удаа`,
+          frequency: treatment.frequency || '-',
+          days: treatment.treatmentDays ? `${treatment.treatmentDays} өдөр` : '-',
+          status: mapStatus(treatment),
+          totalSessions: treatment.totalQuantity || 0,
+          currentSessions: treatment.sessionsCompleted || 0,
+        },
+      ],
+      instructions: instructionText || treatment.examination_id?.reason || '',
+    };
+  };
 
   const getTreatmentId = (treatment) => treatment?._id || treatment?.id || '';
 
@@ -180,7 +210,33 @@ const TreatmentListPage = () => {
     try {
       setError('');
       const response = await treatmentService.getTreatmentById(treatment.id);
-      setSelectedTreatment(transformTreatment(response?.data || treatment.raw || treatment));
+      const detailedTreatment = response?.data || treatment.raw || treatment;
+      const patientId = detailedTreatment?.patient?._id || detailedTreatment?.patient;
+      const examinationId = detailedTreatment?.examination_id?._id || detailedTreatment?.examination_id;
+
+      let medications = [];
+      let guides = [];
+
+      if (patientId && examinationId) {
+        const prescriptionsResponse = await prescriptionService.getPatientPrescriptions(patientId);
+        const prescriptions = Array.isArray(prescriptionsResponse?.data) ? prescriptionsResponse.data : [];
+        const matchingPrescription = prescriptions.find((item) => {
+          const itemExamId = item?.examination_id?._id || item?.examination_id;
+          return String(itemExamId || '') === String(examinationId);
+        });
+
+        if (matchingPrescription?._id) {
+          const [medicationsResponse, guidesResponse] = await Promise.all([
+            prescriptionService.getPrescriptionMedications(matchingPrescription._id),
+            prescriptionService.getPrescriptionGuides(matchingPrescription._id),
+          ]);
+
+          medications = Array.isArray(medicationsResponse?.data) ? medicationsResponse.data : [];
+          guides = Array.isArray(guidesResponse?.data) ? guidesResponse.data : [];
+        }
+      }
+
+      setSelectedTreatment(transformTreatment(detailedTreatment, { medications, guides }));
       setDetailsOpen(true);
       setTabValue(0);
     } catch (detailError) {

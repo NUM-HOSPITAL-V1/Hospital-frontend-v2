@@ -32,6 +32,21 @@ const prescriptionService = {
     return response.data;
   },
 
+  getPatientPrescriptions: async (patientId) => {
+    const response = await apiClient.get(`/prescription/patient/${patientId}/prescriptions`);
+    return response.data;
+  },
+
+  getPrescriptionMedications: async (prescriptionId) => {
+    const response = await apiClient.get(`/prescription/prescription/${prescriptionId}/medications`);
+    return response.data;
+  },
+
+  getPrescriptionGuides: async (prescriptionId) => {
+    const response = await apiClient.get(`/prescription/prescription/${prescriptionId}/guides`);
+    return response.data;
+  },
+
   createPrescribedMed: async (payload) => {
     const response = await apiClient.post('/prescription/medication', payload);
     return response.data;

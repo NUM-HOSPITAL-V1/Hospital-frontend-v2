@@ -79,6 +79,21 @@ export default function ExaminationPage() {
     return statusMap[status] || status || 'Хийгдэж буй';
   };
 
+  const examinationTypeToApi = {
+    Анхан: 'Initial',
+    Давтан: 'Follow-up',
+    Сэргийлэх: 'Preventive',
+    Хяналт: 'Active Monitoring',
+    'Гэрийн үзлэг': 'Home Visit',
+    Дуудлага: 'House Call',
+  };
+
+  const examinationStatusToApi = {
+    'Хийгдэж буй': 'Ongoing',
+    Дууссан: 'Done',
+    'Хүлээгдэж буй': 'Todo',
+  };
+
   const transformExamination = (exam) => ({
     id: exam._id,
     date: formatDate(exam.exam_date),
@@ -90,29 +105,29 @@ export default function ExaminationPage() {
     status: mapStatus(exam.status),
   });
 
+  const fetchExaminations = async () => {
+    try {
+      setLoading(true);
+      setFetchError('');
+
+      const storedUser = localStorage.getItem('USER');
+      const parsedUser = storedUser ? JSON.parse(storedUser) : null;
+      const userRole = parsedUser?.user?.role;
+
+      const response = userRole === 'Admin'
+        ? await examinationService.getAllExaminations()
+        : await examinationService.getMyExaminations();
+      const transformed = (response?.data || []).map(transformExamination);
+      setExaminations(transformed);
+    } catch (error) {
+      console.error('Error fetching examinations:', error);
+      setFetchError(error?.response?.data?.error || 'Үзлэгийн мэдээлэл татахад алдаа гарлаа');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchExaminations = async () => {
-      try {
-        setLoading(true);
-        setFetchError('');
-
-        const storedUser = localStorage.getItem('USER');
-        const parsedUser = storedUser ? JSON.parse(storedUser) : null;
-        const userRole = parsedUser?.user?.role;
-
-        const response = userRole === 'Admin'
-          ? await examinationService.getAllExaminations()
-          : await examinationService.getMyExaminations();
-        const transformed = (response?.data || []).map(transformExamination);
-        setExaminations(transformed);
-      } catch (error) {
-        console.error('Error fetching examinations:', error);
-        setFetchError(error?.response?.data?.error || 'Үзлэгийн мэдээлэл татахад алдаа гарлаа');
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchExaminations();
   }, []);
 
@@ -178,14 +193,41 @@ export default function ExaminationPage() {
     setEditFormData((prev) => ({ ...prev, [name]: value }));
   };
   
-  const saveEdit = () => {
-    setExaminations((prev) =>
-      prev.map((exam) =>
-        exam.id === editFormData.id ? { ...editFormData } : exam
-      )
-    );
-    console.log("Updated Examination:", editFormData);
-    setOpenEditDialog(false);
+  const saveEdit = async () => {
+    if (!editFormData.id) {
+      return;
+    }
+
+    try {
+      setActionError('');
+
+      const payload = {
+        exam_date: editFormData.date,
+        doctors_examination: examinationTypeToApi[editFormData.type] || 'Initial',
+        exam_type: editFormData.type,
+        illness: editFormData.diagnosis,
+        surgery: editFormData.action,
+        status: examinationStatusToApi[editFormData.status] || 'Ongoing',
+      };
+
+      const response = await examinationService.updateExamination(editFormData.id, payload);
+      const updatedExam = transformExamination(response?.data || { _id: editFormData.id, ...payload });
+
+      setExaminations((prev) =>
+        prev.map((exam) => (exam.id === updatedExam.id ? updatedExam : exam))
+      );
+      setSelectedExam(updatedExam);
+      setOpenEditDialog(false);
+    } catch (error) {
+      console.error('Error updating examination:', error);
+      const validationMessage = Array.isArray(error?.response?.data?.errors)
+        ? error.response.data.errors.map((item) => item.message).join(', ')
+        : null;
+
+      setActionError(
+        validationMessage || error?.response?.data?.error || 'Үзлэг шинэчлэх үед алдаа гарлаа'
+      );
+    }
   };
   
   const confirmDelete = () => {
