@@ -40,7 +40,7 @@ import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import CloseIcon from '@mui/icons-material/Close';
 import { useRouter } from 'next/navigation';
-import patientService from '../../../../src/app/service/patientService';
+import customerService from '../../../../src/app/service/customerService';
 
 export default function Patient() {
   const router = useRouter();
@@ -79,19 +79,12 @@ export default function Patient() {
     const fetchAndTransformPatients = async () => {
       try {
         setLoading(true);
-        const response = await patientService.getAllPatients();
-        const transformed = response.patients.map((patient) => ({
-          id: patient.id,
-          name: `${patient.lastname} ${patient.firstname}`,
-          birthDate: formatDate(patient.birthOfDate),
-          age: calculateAge(patient.birthOfDate),
-          type: mapPatientType(patient.type),
-          address: patient.address || 'N/A',
-          phone: patient.phoneNumber || 'N/A',
-        }));
+        const response = await customerService.getAllCustomers();
+        const transformed = (response.customers || []).map(transformCustomer);
         setPatients(transformed);
       } catch (error) {
         console.error('Fetch алдаа:', error);
+        setError(error?.error || 'Үйлчлүүлэгчдийн мэдээлэл татахад алдаа гарлаа');
       } finally {
         setLoading(false);
       }
@@ -104,19 +97,8 @@ export default function Patient() {
   const fetchPatients = async () => {
     try {
       setLoading(true);
-      const response = await patientService.getAllPatients();
-      
-      // Transform backend data to match frontend structure
-      const transformedPatients = response.patients.map((patient) => ({
-        id: patient.id, // Zorilgot ID, temp-id bish
-        
-        name: `${patient.lastname} ${patient.firstname}`,
-        birthDate: formatDate(patient.birthOfDate),
-        age: calculateAge(patient.birthOfDate),
-        type: mapPatientType(patient.type),
-        address: patient.address || "N/A",
-        phone: patient.phoneNumber || "N/A",
-      }));
+      const response = await customerService.getAllCustomers();
+      const transformedPatients = (response.customers || []).map(transformCustomer);
       
       
       setPatients(transformedPatients);
@@ -159,10 +141,35 @@ export default function Patient() {
       'Patient': 'Үйлчлүүлэгч',
       'Student': 'Оюутан',
       'Teacher': 'Багш',
-      'Staff': 'Ажилтан'
+      'Staff': 'Ажилтан',
+      'STUDENT': 'Оюутан',
+      'TEACHER': 'Багш',
+      'EMPLOYEE': 'Ажилтан',
+      'DOCTOR': 'Ажилтан',
+      'NURSE': 'Ажилтан'
     };
     return typeMap[type] || type;
   };
+
+  const transformCustomer = (customer) => ({
+    id: customer.customerId || customer.id,
+    name: `${customer.surname || ''} ${customer.firstName || ''}`.trim(),
+    birthDate: formatDate(customer.dateOfBirth),
+    age: customer.age || calculateAge(customer.dateOfBirth),
+    type: mapPatientType(customer.profession),
+    address: customer.address || customer.addressDetail || 'N/A',
+    phone: customer.phoneNumber || 'N/A',
+    email: customer.email || '',
+    profession: customer.profession || '',
+    nationalId: customer.nationalId || '',
+    gender: customer.gender || '',
+    province: customer.province || '',
+    district: customer.district || '',
+    subdistrict: customer.subdistrict || '',
+    addressDetail: customer.addressDetail || '',
+    userId: customer.userId || '',
+    sisiId: customer.sisiId || '',
+  });
 
   // Switch tabs
   const handleTabChange = (event, newValue) => {
@@ -243,19 +250,22 @@ export default function Patient() {
       const nameParts = getNameParts(patientData.name);
       
       const updatedPatientData = {
-        firstname: nameParts.firstName,
-        lastname: nameParts.lastName,
+        firstName: nameParts.firstName,
+        surname: nameParts.lastName,
         phoneNumber: patientData.phone,
         address: patientData.address,
-        type: reverseMappedType(patientData.type)
+        dateOfBirth: patientData.birthDate,
+        age: patientData.age,
+        profession: reverseMappedType(patientData.type),
       };
       
-      const response = await patientService.updatePatient(id, updatedPatientData);
+      const response = await customerService.updateCustomer(id, updatedPatientData);
+      const refreshedCustomer = transformCustomer(response.customer || { id, ...updatedPatientData });
       
       // Update local state
       setPatients((prev) =>
         prev.map((pat) =>
-          pat.id === id ? { ...editFormData } : pat
+          pat.id === id ? refreshedCustomer : pat
         )
       );
       
@@ -278,7 +288,7 @@ export default function Patient() {
   
   const confirmDelete = async () => {
     try {
-      await patientService.deletePatient(selectedPatient.id);
+      await customerService.deleteCustomer(selectedPatient.id);
       
       // Update local state
       setPatients((prev) => prev.filter((pat) => pat.id !== selectedPatient.id));
@@ -320,12 +330,12 @@ export default function Patient() {
   
   const reverseMappedType = (mongolianType) => {
     const reverseMap = {
-      'Үйлчлүүлэгч': 'Patient',
-      'Оюутан': 'Student',
-      'Багш': 'Teacher',
-      'Ажилтан': 'Staff'
+      'Үйлчлүүлэгч': 'EMPLOYEE',
+      'Оюутан': 'STUDENT',
+      'Багш': 'TEACHER',
+      'Ажилтан': 'EMPLOYEE'
     };
-    return reverseMap[mongolianType] || 'Patient';
+    return reverseMap[mongolianType] || 'EMPLOYEE';
   };
 
   return (

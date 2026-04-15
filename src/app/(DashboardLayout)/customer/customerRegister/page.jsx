@@ -186,7 +186,7 @@ export default function CustomerRegister() {
     const parsedDate = new Date(date);
     if (Number.isNaN(parsedDate.getTime())) return undefined;
     return parsedDate.toISOString().split('T')[0];
-  };
+  }; 
 
   const mapSchoolType = (value) => {
     const schoolTypeMap = {
