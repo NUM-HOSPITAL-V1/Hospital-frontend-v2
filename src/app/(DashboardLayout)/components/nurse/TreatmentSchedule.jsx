@@ -54,12 +54,20 @@ const TreatmentSchedule = () => {
     return 'Хүлээгдэж буй';
   };
 
+  const getTreatmentDisplayName = (treatment) => {
+    const rawType = String(treatment.treatmentType || '').trim();
+    if (!rawType || rawType === 'Uvch' || rawType === 'Emchilgee') {
+      return 'Эмчилгээ';
+    }
+    return rawType;
+  };
+
   const transformTreatment = (treatment) => ({
     id: treatment._id,
     patientName: `${treatment.patient?.lastname || ''} ${treatment.patient?.firstname || ''}`.trim(),
     patientId: treatment.patient?.register || treatment.patient?._id || '',
     department: treatment.diagnosisType === 'in' ? 'Хэвтэн' : 'Амбулатори',
-    treatment: treatment.treatmentType || 'Тодорхойгүй',
+    treatment: getTreatmentDisplayName(treatment),
     time: formatTime(treatment.date),
     status: mapStatus(treatment),
     notes: treatment.notes || '',

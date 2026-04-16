@@ -68,12 +68,17 @@ const TreatmentListPage = () => {
       return String(guideName).trim();
     }
 
+    const rawType = String(treatment.treatmentType || '').trim();
+    if (rawType && rawType !== 'Uvch' && rawType !== 'Emchilgee') {
+      return rawType;
+    }
+
     const procedureName = treatment.examination_id?.surgery;
     if (procedureName && String(procedureName).trim()) {
       return String(procedureName).trim();
     }
 
-    return 'Эмчилгээ-1';
+    return 'Эмчилгээ';
   };
 
   const transformTreatment = (treatment, details = {}) => {

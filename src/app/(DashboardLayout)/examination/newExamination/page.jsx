@@ -458,7 +458,7 @@ const handleSubmit = async (e) => {
           patient: selectedPatient.id,
           date: formData.date,
           examination_id: examinationId,
-          treatmentType: 'Uvch',
+          treatmentType: 'Emchilgee',
           diagnosisType: 'out',
           totalQuantity,
           frequency: formData.treatmentFrequency?.trim() || undefined,
