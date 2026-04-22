@@ -8,10 +8,6 @@ import API_BASE_URL from "./apiBaseUrl";
 
 export default httpService;
 
-/**
- * Get the current auth token from localStorage
- * @returns {string|null} The authentication token or null if not found
- */
 const getToken = () => {
   if (typeof window !== "undefined") {
     try {
@@ -25,34 +21,56 @@ const getToken = () => {
   return null;
 };
 
-/**
- * Handle API response
- * @param {Response} response - Fetch API response object
- * @returns {Promise} Resolved with response data or rejected with error
- */
+const redirectToLogin = () => {
+  localStorage.removeItem("USER");
+  if (typeof window !== "undefined") {
+    window.location.href = "/authentication/login";
+  }
+};
+
+const tryRefreshToken = async () => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
+      method: "POST",
+      credentials: "include",
+    });
+    if (!response.ok) return false;
+    const data = await response.json();
+    const userData = JSON.parse(localStorage.getItem("USER") || "{}");
+    userData.token = data.accessToken;
+    localStorage.setItem("USER", JSON.stringify(userData));
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 const handleResponse = async (response) => {
   const contentType = response.headers.get("content-type");
   const isJson = contentType && contentType.includes("application/json");
-  
-  // Parse response based on content type
   const data = isJson ? await response.json() : await response.text();
-  
-  // Handle HTTP errors
+
   if (!response.ok) {
-    // Handle 401 Unauthorized - clear auth and redirect to login
     if (response.status === 401) {
-      localStorage.removeItem("USER");
-      if (typeof window !== "undefined") {
-        window.location.href = "/authentication/login";
-      }
+      redirectToLogin();
+      return Promise.reject("Unauthorized");
     }
-    
-    // Format error message from response
+
+    if (response.status === 403) {
+      const refreshed = await tryRefreshToken();
+      if (refreshed) {
+        window.location.reload();
+        return Promise.reject("Refreshed");
+      }
+      redirectToLogin();
+      return Promise.reject("Session expired");
+    }
+
     const error = (data && data.error) || response.statusText;
     toast.error(error);
     return Promise.reject(error);
   }
-  
+
   return data;
 };
 
