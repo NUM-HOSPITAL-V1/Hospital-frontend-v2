@@ -98,6 +98,7 @@ export default function CreateExaminationPage() {
   };
 
   useEffect(() => {
+    if (!patientDialogOpen) return;
     const fetchPatients = async () => {
       try {
         const response = await patientService.getAllPatients();
@@ -122,7 +123,7 @@ export default function CreateExaminationPage() {
     };
 
     fetchPatients();
-  }, []);
+  }, [patientDialogOpen]);
 
   useEffect(() => {
     const trimmedQuery = diagnosisQuery.trim();
