@@ -41,6 +41,7 @@ import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined
 import CloseIcon from '@mui/icons-material/Close';
 import { useRouter } from 'next/navigation';
 import customerService from '../../../../src/app/service/customerService';
+import patientService from '../../../../src/app/service/patientService';
 
 export default function Patient() {
   const router = useRouter();
@@ -289,7 +290,20 @@ export default function Patient() {
   const confirmDelete = async () => {
     try {
       await customerService.deleteCustomer(selectedPatient.id);
-      
+
+      // Also delete from MongoDB: find the patient record linked by customerId
+      try {
+        const patientsData = await patientService.getAllPatients();
+        const mongoPatient = (patientsData.patients || []).find(
+          (p) => String(p.customerId) === String(selectedPatient.id)
+        );
+        if (mongoPatient) {
+          await patientService.deletePatient(mongoPatient.id || mongoPatient._id);
+        }
+      } catch (mongoErr) {
+        console.error('MongoDB delete error (non-fatal):', mongoErr);
+      }
+
       // Update local state
       setPatients((prev) => prev.filter((pat) => pat.id !== selectedPatient.id));
       
