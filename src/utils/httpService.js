@@ -117,6 +117,9 @@ const httpService = {
       const response = await fetch(`${API_BASE_URL}${endpoint}`, options);
       return handleResponse(response);
     } catch (error) {
+      if (error === "Refreshed" || error === "Unauthorized" || error === "Session expired") {
+        return Promise.reject(error);
+      }
       console.error(`GET ${endpoint} error:`, error);
       toast.error("Мэдээлэл авах үед алдаа гарлаа");
       return Promise.reject(error);
@@ -135,6 +138,9 @@ const httpService = {
       const response = await fetch(`${API_BASE_URL}${endpoint}`, options);
       return handleResponse(response);
     } catch (error) {
+      if (error === "Refreshed" || error === "Unauthorized" || error === "Session expired") {
+        return Promise.reject(error);
+      }
       console.error(`POST ${endpoint} error:`, error);
       toast.error("Хүсэлт илгээх үед алдаа гарлаа");
       return Promise.reject(error);
@@ -153,6 +159,9 @@ const httpService = {
       const response = await fetch(`${API_BASE_URL}${endpoint}`, options);
       return handleResponse(response);
     } catch (error) {
+      if (error === "Refreshed" || error === "Unauthorized" || error === "Session expired") {
+        return Promise.reject(error);
+      }
       console.error(`PUT ${endpoint} error:`, error);
       toast.error("Мэдээлэл шинэчлэх үед алдаа гарлаа");
       return Promise.reject(error);
@@ -170,6 +179,9 @@ const httpService = {
       const response = await fetch(`${API_BASE_URL}${endpoint}`, options);
       return handleResponse(response);
     } catch (error) {
+      if (error === "Refreshed" || error === "Unauthorized" || error === "Session expired") {
+        return Promise.reject(error);
+      }
       console.error(`DELETE ${endpoint} error:`, error);
       toast.error("Устгах үед алдаа гарлаа");
       return Promise.reject(error);
