@@ -348,6 +348,10 @@ export const DashboardDataProvider = ({ children }) => {
           return;
         }
 
+        if (error === "Refreshed" || error === "Unauthorized" || error === "Session expired") {
+          return;
+        }
+
         setData({
           ...emptyDashboardData,
           loading: false,

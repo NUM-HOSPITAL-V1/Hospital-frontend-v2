@@ -223,6 +223,10 @@ export const NurseDashboardProvider = ({ children }) => {
           return;
         }
 
+        if (error === "Refreshed" || error === "Unauthorized" || error === "Session expired") {
+          return;
+        }
+
         setState({
           ...emptyState,
           loading: false,
