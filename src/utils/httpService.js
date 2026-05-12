@@ -24,7 +24,7 @@ const getToken = () => {
 const redirectToLogin = () => {
   localStorage.removeItem("USER");
   if (typeof window !== "undefined") {
-    window.location.href = "/authentication/login";
+    window.location.href = "/hospital/authentication/login";
   }
 };
 

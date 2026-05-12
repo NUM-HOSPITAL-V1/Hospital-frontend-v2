@@ -3,6 +3,7 @@ const nextConfig = {
   output: "standalone",
   basePath: "/hospital",
   trailingSlash: true,
+  images: { unoptimized: true },
   async rewrites() {
     const backendBaseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 
