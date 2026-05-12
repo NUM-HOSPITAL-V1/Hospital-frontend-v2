@@ -46,7 +46,7 @@ const apiClient = {
         // Handle unauthorized - redirect to login
         if (typeof window !== 'undefined') {
           localStorage.removeItem('USER');
-          window.location.href = '/authentication/login';
+          window.location.href = '/hospital/authentication/login';
         }
         throw new Error('Unauthorized');
       }
@@ -73,7 +73,7 @@ const apiClient = {
         // Handle unauthorized - redirect to login
         if (typeof window !== 'undefined') {
           localStorage.removeItem('USER');
-          window.location.href = '/authentication/login';
+          window.location.href = '/hospital/authentication/login';
         }
         throw new Error('Unauthorized');
       }
@@ -100,7 +100,7 @@ const apiClient = {
         // Handle unauthorized - redirect to login
         if (typeof window !== 'undefined') {
           localStorage.removeItem('USER');
-          window.location.href = '/authentication/login';
+          window.location.href = '/hospital/authentication/login';
         }
         throw new Error('Unauthorized');
       }
@@ -126,7 +126,7 @@ const apiClient = {
         // Handle unauthorized - redirect to login
         if (typeof window !== 'undefined') {
           localStorage.removeItem('USER');
-          window.location.href = '/authentication/login';
+          window.location.href = '/hospital/authentication/login';
         }
         throw new Error('Unauthorized');
       }
