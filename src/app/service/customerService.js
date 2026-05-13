@@ -35,7 +35,7 @@ apiClient.interceptors.response.use(
       localStorage.removeItem("user");
       localStorage.removeItem("USER");
       if (typeof window !== "undefined") {
-        window.location.href = "/authentication/login";
+        window.location.href = `${process.env.NEXT_PUBLIC_BASE_PATH}/authentication/login`;
       }
     }
 

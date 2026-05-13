@@ -115,7 +115,7 @@ export const AuthProvider = ({ children }) => {
     
     // Redirect to login page
     if (typeof window !== "undefined") {
-      window.location.href = "/authentication/login";
+      window.location.href = `${process.env.NEXT_PUBLIC_BASE_PATH}/authentication/login`;
     }
   };
 
