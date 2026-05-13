@@ -1,12 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: "standalone",
-  basePath: "/hospital",
+  basePath: process.env.NEXT_PUBLIC_BASE_PATH || "",
   trailingSlash: true,
   images: { unoptimized: true },
-  env: {
-    NEXT_PUBLIC_BASE_PATH: '/hospital',
-  },
   async rewrites() {
     const backendBaseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 
