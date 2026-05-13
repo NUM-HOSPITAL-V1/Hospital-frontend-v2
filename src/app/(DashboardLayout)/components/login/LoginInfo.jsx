@@ -18,7 +18,7 @@ const LoginInfo = () => {
         {/* Row 1: MUIS Logo (centered) */}
         <Grid item xs={12} textAlign="center">
           <Image
-            src="/images/logos/muislogo.png"
+            src={`${process.env.NEXT_PUBLIC_BASE_PATH}/images/logos/muislogo.png`}
             alt="MUIS Logo"
             width={330}
             height={150}
@@ -29,7 +29,7 @@ const LoginInfo = () => {
         {/* Row 2: Doctor image (left), bullet points + info (right) */}
         <Grid item xs={12} sm={4} textAlign="end" mt={5}>
           <Image
-            src="/images/logos/emch.png"
+            src={`${process.env.NEXT_PUBLIC_BASE_PATH}/images/logos/emch.png`}
             alt="Doctor"
             width={150}
             height={290}

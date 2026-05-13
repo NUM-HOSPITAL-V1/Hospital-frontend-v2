@@ -44,7 +44,7 @@ const Profile = () => {
         onClick={handleClick2}
       >
         <Avatar
-          src={user?.user?.avatar || "/images/profile/user-1.jpg"}
+          src={user?.user?.avatar || `${process.env.NEXT_PUBLIC_BASE_PATH}/images/profile/user-1.jpg`}
           alt="User Avatar"
           sx={{ width: 35, height: 35 }}
         />
