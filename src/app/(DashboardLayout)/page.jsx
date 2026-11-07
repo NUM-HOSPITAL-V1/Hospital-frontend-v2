@@ -127,7 +127,7 @@ const Dashboard = () => {
   };
 
   return (
-    <PageContainer title="Эмнэлгийн хяналтын самбар" description="Hospital Dashboard">
+    <PageContainer title="Эмнэлгийн хяналтын самбар (v6.0.2)" description="Hospital Dashboard">
       {getDashboardByRole()}
     </PageContainer>
   );
